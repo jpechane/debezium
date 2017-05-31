@@ -5,12 +5,12 @@
  */
 package io.debezium.connector.mysql;
 
+import static org.fest.assertions.Assertions.assertThat;
+
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
-
-import static org.fest.assertions.Assertions.assertThat;
 
 /**
  * @author Randall Hauch
@@ -33,8 +33,8 @@ public class MySqlTaskContextIT extends MySqlTaskContextTest {
         assertThat(context.source()).isNotNull();
         assertThat(context.topicSelector()).isNotNull();
 
-        assertThat(context.hostname()).isEqualTo(hostname);
-        assertThat(context.port()).isEqualTo(port);
+        assertThat(context.hostname()).isEqualTo(MySQLCube.DEFAULT.getCubeIP(docker));
+        assertThat(context.port()).isEqualTo(MySQLCube.MYSQL_PORT);
         assertThat(context.username()).isEqualTo(username);
         assertThat(context.password()).isEqualTo(password);
         assertThat(context.serverId()).isEqualTo(serverId);

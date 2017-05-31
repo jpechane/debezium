@@ -23,13 +23,17 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.dockerjava.api.DockerClient;
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.BinaryLogClient.EventListener;
 import com.github.shyiko.mysql.binlog.BinaryLogClient.LifecycleListener;
@@ -52,6 +56,7 @@ import static org.fest.assertions.Assertions.assertThat;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.util.Testing;
 
+@RunWith(Arquillian.class)
 public class ReadBinLogIT implements Testing {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(ReadBinLogIT.class);
@@ -62,6 +67,9 @@ public class ReadBinLogIT implements Testing {
     }
 
     private static final Serializable ANY_OBJECT = new AnyValue();
+
+    @ArquillianResource
+    private DockerClient docker; 
 
     private EventQueue counters;
     private BinaryLogClient client;
@@ -74,7 +82,7 @@ public class ReadBinLogIT implements Testing {
         events.clear();
 
         // Connect the normal SQL client ...
-        conn = MySQLConnection.forTestDatabase("readbinlog_test");
+        conn = MySQLConnection.forTestDatabase("readbinlog_test", MySQLCube.DEFAULT.getCubeIP(docker), MySQLCube.MYSQL_PORT);
         conn.connect();
 
         // Get the configuration that we used ...

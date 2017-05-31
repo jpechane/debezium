@@ -8,7 +8,12 @@ package io.debezium.connector.mysql;
 import java.sql.SQLException;
 import java.sql.Types;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.github.dockerjava.api.DockerClient;
 
 import static org.fest.assertions.Assertions.assertThat;
 
@@ -17,7 +22,11 @@ import io.debezium.relational.Table;
 import io.debezium.relational.Tables;
 import io.debezium.util.Testing;
 
+@RunWith(Arquillian.class)
 public class MetadataIT implements Testing {
+
+    @ArquillianResource
+    private DockerClient docker; 
 
     /**
      * Loads the {@link Tables} definition by reading JDBC metadata. Note that some characteristics, such as whether columns
@@ -26,7 +35,7 @@ public class MetadataIT implements Testing {
      */
     @Test
     public void shouldLoadMetadataViaJdbc() throws SQLException {
-        try (MySQLConnection conn = MySQLConnection.forTestDatabase("readbinlog_test");) {
+        try (MySQLConnection conn = MySQLConnection.forTestDatabase("readbinlog_test", MySQLCube.DEFAULT.getCubeIP(docker), MySQLCube.MYSQL_PORT)) {
             conn.connect();
             // Set up the table as one transaction and wait to see the events ...
             conn.execute("DROP TABLE IF EXISTS person",

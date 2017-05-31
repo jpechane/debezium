@@ -11,9 +11,14 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.function.Predicate;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.github.dockerjava.api.DockerClient;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig.SecureConnectionMode;
@@ -28,12 +33,14 @@ import io.debezium.util.Testing;
  * @author Randall Hauch
  *
  */
+@RunWith(Arquillian.class)
 public class MySqlTaskContextTest {
 
     protected static final Path DB_HISTORY_PATH = Testing.Files.createTestingPath("file-db-history-context.txt").toAbsolutePath();
 
-    protected String hostname;
-    protected int port;
+    @ArquillianResource
+    protected DockerClient docker; 
+
     protected String username;
     protected String password;
     protected int serverId;
@@ -45,14 +52,6 @@ public class MySqlTaskContextTest {
 
     @Before
     public void beforeEach() {
-        hostname = System.getProperty("database.hostname");
-        if (hostname == null) hostname = "localhost";
-        String portStr = System.getProperty("database.port");
-        if (portStr != null) {
-            port = Integer.parseInt(portStr);
-        } else {
-            port = (Integer) MySqlConnectorConfig.PORT.defaultValue();
-        }
         username = "snapper";
         password = "snapperpass";
         serverId = 18965;
@@ -74,9 +73,7 @@ public class MySqlTaskContextTest {
     }
 
     protected Configuration.Builder simpleConfig() {
-        return Configuration.create()
-                            .with(MySqlConnectorConfig.HOSTNAME, hostname)
-                            .with(MySqlConnectorConfig.PORT, port)
+        return MySQLCube.DEFAULT.configuration(docker)
                             .with(MySqlConnectorConfig.USER, username)
                             .with(MySqlConnectorConfig.PASSWORD, password)
                             .with(MySqlConnectorConfig.SSL_MODE, SecureConnectionMode.DISABLED)

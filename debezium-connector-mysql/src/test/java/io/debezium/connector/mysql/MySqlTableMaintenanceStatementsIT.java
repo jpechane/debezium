@@ -10,9 +10,14 @@ import static org.fest.assertions.Assertions.assertThat;
 import java.nio.file.Path;
 import java.sql.SQLException;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.github.dockerjava.api.DockerClient;
 
 import io.debezium.config.Configuration;
 import io.debezium.doc.FixFor;
@@ -23,10 +28,14 @@ import io.debezium.util.Testing;
 /**
  * @author Gunnar Morling
  */
+@RunWith(Arquillian.class)
 public class MySqlTableMaintenanceStatementsIT extends AbstractConnectorTest {
 
     private static final Path DB_HISTORY_PATH = Testing.Files.createTestingPath("file-db-history-table-maintenance.txt")
                                                              .toAbsolutePath();
+
+    @ArquillianResource
+    private DockerClient docker; 
 
     private Configuration config;
 
@@ -50,9 +59,7 @@ public class MySqlTableMaintenanceStatementsIT extends AbstractConnectorTest {
     @FixFor("DBZ-253")
     public void shouldConsumeAllEventsFromDatabaseUsingBinlogAndNoSnapshot() throws SQLException, InterruptedException {
         // Use the DB configuration to define the connector's configuration ...
-        config = Configuration.create()
-                .with(MySqlConnectorConfig.HOSTNAME, System.getProperty("database.hostname"))
-                .with(MySqlConnectorConfig.PORT, System.getProperty("database.port"))
+        config = MySQLCube.DEFAULT.configuration(docker)
                 .with(MySqlConnectorConfig.USER, "snapper")
                 .with(MySqlConnectorConfig.PASSWORD, "snapperpass")
                 .with(MySqlConnectorConfig.SSL_MODE, MySqlConnectorConfig.SecureConnectionMode.DISABLED)

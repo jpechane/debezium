@@ -8,24 +8,33 @@ package io.debezium.connector.mysql;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.github.dockerjava.api.DockerClient;
 
 import io.debezium.util.Testing;
 
+@RunWith(Arquillian.class)
 public class ConnectionIT implements Testing {
+
+    @ArquillianResource
+    private DockerClient docker; 
 
     @Ignore
     @Test
     public void shouldConnectToDefaulDatabase() throws SQLException {
-        try (MySQLConnection conn = MySQLConnection.forTestDatabase("mysql");) {
+        try (MySQLConnection conn = MySQLConnection.forTestDatabase("mysql", MySQLCube.DEFAULT.getCubeIP(docker), MySQLCube.MYSQL_PORT);) {
             conn.connect();
         }
     }
 
     @Test
     public void shouldDoStuffWithDatabase() throws SQLException {
-        try (MySQLConnection conn = MySQLConnection.forTestDatabase("readbinlog_test");) {
+        try (MySQLConnection conn = MySQLConnection.forTestDatabase("readbinlog_test", MySQLCube.DEFAULT.getCubeIP(docker), MySQLCube.MYSQL_PORT);) {
             conn.connect();
             // Set up the table as one transaction and wait to see the events ...
             conn.execute("DROP TABLE IF EXISTS person",
@@ -46,7 +55,7 @@ public class ConnectionIT implements Testing {
     @Ignore
     @Test
     public void shouldConnectToEmptyDatabase() throws SQLException {
-        try (MySQLConnection conn = MySQLConnection.forTestDatabase("emptydb");) {
+        try (MySQLConnection conn = MySQLConnection.forTestDatabase("emptydb", MySQLCube.DEFAULT.getCubeIP(docker), MySQLCube.MYSQL_PORT);) {
             conn.connect();
         }
     }
