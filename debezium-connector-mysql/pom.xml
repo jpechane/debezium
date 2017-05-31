@@ -104,6 +104,7 @@
         <mysql.gtid.replica.port>3306</mysql.gtid.replica.port>
         <mysql.replica.port>3306</mysql.replica.port> <!-- by default use master as 'replica' -->
         <mysql.init.timeout>60000</mysql.init.timeout> <!-- 60 seconds -->
+        <test.mysql.gtid>false</test.mysql.gtid>
         <!--
         By default, we should use the docker image maintained by the MySQL team. This property is changed with different profiles.
         However, we run one container with GTIDs and one without.
@@ -429,6 +430,7 @@
                                 <database.replica.password>${mysql.replica.password}</database.replica.password>
                                 <database.port>${mysql.port}</database.port>
                                 <database.replica.port>${mysql.port}</database.replica.port>
+				<test.mysql.gtid>${test.mysql.gtid}</test.mysql.gtid>
                                 <skipLongRunningTests>false</skipLongRunningTests>
                             </systemPropertyVariables>
                         </configuration>
