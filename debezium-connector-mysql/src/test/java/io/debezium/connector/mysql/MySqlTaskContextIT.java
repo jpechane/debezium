@@ -10,13 +10,38 @@ import static org.fest.assertions.Assertions.assertThat;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.github.dockerjava.api.DockerClient;
+
+import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnectorConfig.SecureConnectionMode;
+import io.debezium.relational.history.FileDatabaseHistory;
 
 /**
  * @author Randall Hauch
  *
  */
+@RunWith(Arquillian.class)
 public class MySqlTaskContextIT extends MySqlTaskContextTest {
+
+    @ArquillianResource
+    private DockerClient docker; 
+
+    protected Configuration.Builder simpleConfig() {
+        return MySQLCube.DEFAULT.configuration(docker)
+                            .with(MySqlConnectorConfig.USER, username)
+                            .with(MySqlConnectorConfig.PASSWORD, password)
+                            .with(MySqlConnectorConfig.SSL_MODE, SecureConnectionMode.DISABLED)
+                            .with(MySqlConnectorConfig.SERVER_ID, serverId)
+                            .with(MySqlConnectorConfig.SERVER_NAME, serverName)
+                            .with(MySqlConnectorConfig.DATABASE_WHITELIST, databaseName)
+                            .with(MySqlConnectorConfig.DATABASE_HISTORY, FileDatabaseHistory.class)
+                            .with(FileDatabaseHistory.FILE_PATH, DB_HISTORY_PATH);
+    }
 
     @Test
     public void shouldCreateTaskFromConfiguration() throws Exception {
