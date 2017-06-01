@@ -430,7 +430,7 @@
                                 <database.replica.password>${mysql.replica.password}</database.replica.password>
                                 <database.port>${mysql.port}</database.port>
                                 <database.replica.port>${mysql.port}</database.replica.port>
-				<test.mysql.gtid>${test.mysql.gtid}</test.mysql.gtid>
+                                <test.mysql.gtid>${test.mysql.gtid}</test.mysql.gtid>
                                 <skipLongRunningTests>false</skipLongRunningTests>
                             </systemPropertyVariables>
                         </configuration>

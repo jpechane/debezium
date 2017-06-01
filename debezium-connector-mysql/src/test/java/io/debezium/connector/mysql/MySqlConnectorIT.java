@@ -49,10 +49,10 @@ public class MySqlConnectorIT extends AbstractConnectorTest {
     private static final Path DB_HISTORY_PATH = Testing.Files.createTestingPath("file-db-history-connect.txt").toAbsolutePath();
 
     @ArquillianResource
-    private CubeController cubeController; 
+    private CubeController cubeController;
 
     @ArquillianResource
-    private DockerClient docker; 
+    private DockerClient docker;
 
     private Configuration config;
 
@@ -263,12 +263,8 @@ public class MySqlConnectorIT extends AbstractConnectorTest {
     public void shouldConsumeAllEventsFromDatabaseUsingSnapshot() throws SQLException, InterruptedException {
         MySQLCube cube = MySQLCube.DEFAULT;
         boolean replicaIsMaster = TestConfiguration.isGTIDEnabled();
-        if (!replicaIsMaster) {
-            // Give time for the replica to catch up to the master ...
-            Thread.sleep(5000L);
-        }
-        else {
-            cube = MySQLCube.GTIDS_MASTER;
+        if (replicaIsMaster) {
+            cube = MySQLCube.GTIDS_REPLICA;
             startGTIDSCubes();
         }
         final String mysqlHost = cube.getCubeIP(docker);

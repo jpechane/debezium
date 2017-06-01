@@ -12,6 +12,22 @@ import org.arquillian.cube.docker.impl.docker.DockerClientExecutor;
 import org.arquillian.cube.spi.Cube;
 import org.arquillian.cube.spi.await.AwaitStrategy;
 
+/**
+ * This strategy is used in arquillian.xml to verify that MySQL Docker containers were initialized.
+ * It is necessary to combine two strategies - log and polling for port. Using them in isolation fails
+ * because the initialization logic of container is
+ * <ul>
+ * <ol>Start MySQL and initialize the database</ol>
+ * <ol>Print message - MySQL init process done. Ready for start up.</ol>
+ * <ol>Restart database</ol>
+ * </ul>
+ * It is thus necessary to poll for 3306 port only AFTER the message is present in a log file otherwise
+ * Cube would mistakenly suppose the container is initialized as the polling strategy would hit
+ * the MySQL start during the first phase.
+ * 
+ * @author Jiri Pechanec
+ *
+ */
 public class MySQLAwaitStrategy implements AwaitStrategy {
     private static final int WAIT_AFTER_LOG_MESSAGE = 5000;
     private Await params;

@@ -26,18 +26,20 @@
                 image: debezium/mysql-server-gtids-test-database
                 exposedPorts: [3306/tcp]
                 await:
-                  strategy: log
-                  match: MySQL init process done. Ready for start up.
+                  strategy: io.debezium.connector.mysql.MySQLAwaitStrategy
                   timeout: 90
+                  ports: [3306]
+                  match: MySQL init process done. Ready for start up.
                 env: [MYSQL_ROOT_PASSWORD=debezium-rocks, MYSQL_DATABASE=mysql, MYSQL_USER=mysqluser, MYSQL_PASSWORD=mysqlpw]
                 manual: true
               replica-gtids:
                 image: debezium/mysql-server-gtids-test-database-replica
                 exposedPorts: [3306/tcp]
                 await:
-                  strategy: log
-                  match: MySQL init process done. Ready for start up.
+                  strategy: io.debezium.connector.mysql.MySQLAwaitStrategy
                   timeout: 90
+                  ports: [3306]
+                  match: MySQL init process done. Ready for start up.
                 env: [MYSQL_ROOT_PASSWORD=debezium-rocks, MYSQL_DATABASE=mysql, MYSQL_USER=mysqlreplica, MYSQL_PASSWORD=mysqlpw]
                 links:
                   - database-gtids
