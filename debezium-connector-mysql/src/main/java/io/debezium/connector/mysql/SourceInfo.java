@@ -13,6 +13,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.annotation.NotThreadSafe;
 import io.debezium.data.Envelope;
@@ -95,6 +97,7 @@ final class SourceInfo {
     // Avro Schema doesn't allow "-" to be included as field name, use "_" instead.
     // Ref https://issues.apache.org/jira/browse/AVRO-838.
     public static final String SERVER_ID_KEY = "server_id";
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     public static final String SERVER_NAME_KEY = "name";
     public static final String SERVER_PARTITION_KEY = "server";
@@ -299,6 +302,7 @@ final class SourceInfo {
      * @see #schema()
      */
     public Struct struct(TableId tableId) {
+        logger.debug("Converting to Struct {}", this);
         assert serverName != null;
         Struct result = new Struct(SCHEMA);
         result.put(SERVER_NAME_KEY, serverName);
