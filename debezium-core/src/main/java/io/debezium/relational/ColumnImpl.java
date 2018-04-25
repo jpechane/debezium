@@ -5,6 +5,8 @@
  */
 package io.debezium.relational;
 
+import java.util.Optional;
+
 import io.debezium.util.Strings;
 
 final class ColumnImpl implements Column, Comparable<Column> {
@@ -16,13 +18,13 @@ final class ColumnImpl implements Column, Comparable<Column> {
     private final String typeExpression;
     private final String charsetName;
     private final int length;
-    private final int scale;
+    private final Optional<Integer> scale;
     private final boolean optional;
     private final boolean autoIncremented;
     private final boolean generated;
 
     protected ColumnImpl(String columnName, int position, int jdbcType, int nativeType, String typeName, String typeExpression,
-                         String charsetName, String defaultCharsetName, int columnLength, int columnScale,
+                         String charsetName, String defaultCharsetName, int columnLength, Optional<Integer> columnScale,
                          boolean optional, boolean autoIncremented, boolean generated) {
         this.name = columnName;
         this.position = position;
@@ -41,7 +43,6 @@ final class ColumnImpl implements Column, Comparable<Column> {
         this.optional = optional;
         this.autoIncremented = autoIncremented;
         this.generated = generated;
-        assert this.scale >= -1;
         assert this.length >= -1;
     }
 
@@ -86,7 +87,7 @@ final class ColumnImpl implements Column, Comparable<Column> {
     }
 
     @Override
-    public int scale() {
+    public Optional<Integer> scale() {
         return scale;
     }
 
@@ -136,9 +137,7 @@ final class ColumnImpl implements Column, Comparable<Column> {
         sb.append(" ").append(typeName);
         if (length >= 0) {
             sb.append('(').append(length);
-            if (scale >= 0) {
-                sb.append(',').append(scale);
-            }
+            scale.ifPresent(s -> sb.append(',').append(s));
             sb.append(')');
         }
         if (charsetName != null && !charsetName.isEmpty()) {
