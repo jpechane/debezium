@@ -222,9 +222,10 @@ public class MySqlValueConverters extends JdbcValueConverters {
         if (matches(typeName, "ENUM")) {
             // Build up the character array based upon the column's type ...
             List<String> options = extractEnumAndSetOptions(column);
-            return enhancedAvroSchemaTypes ? 
-                    (data) -> convertEnumToInteger(options, column, fieldDefn, data) :
-                    (data) -> convertEnumToString(options, column, fieldDefn, data);
+              return (data) -> convertEnumToString(options, column, fieldDefn, data);
+//            return enhancedAvroSchemaTypes ? 
+//                    (data) -> convertEnumToInteger(options, column, fieldDefn, data) :
+//                    (data) -> convertEnumToString(options, column, fieldDefn, data);
         }
         if (matches(typeName, "SET")) {
             // Build up the character array based upon the column's type ...
