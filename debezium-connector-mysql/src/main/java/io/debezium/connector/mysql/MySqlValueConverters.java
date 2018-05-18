@@ -58,6 +58,7 @@ import io.debezium.util.Strings;
  */
 @Immutable
 public class MySqlValueConverters extends JdbcValueConverters {
+    private boolean enhancedAvroSchemaTypes = true;
 
     /**
      * A utility method that adjusts <a href="https://dev.mysql.com/doc/refman/5.7/en/two-digit-years.html">ambiguous</a> 2-digit
@@ -165,8 +166,7 @@ public class MySqlValueConverters extends JdbcValueConverters {
             return Year.builder();
         }
         if (matches(typeName, "ENUM")) {
-            String commaSeperatedOptions = extractEnumAndSetOptionsAsString(column);
-            return io.debezium.data.Enum.builder(commaSeperatedOptions);
+            return io.debezium.data.Enum.builder(extractEnumAndSetOptions(column), column.name(), enhancedAvroSchemaTypes);
         }
         if (matches(typeName, "SET")) {
             String commaSeperatedOptions = extractEnumAndSetOptionsAsString(column);
@@ -222,7 +222,9 @@ public class MySqlValueConverters extends JdbcValueConverters {
         if (matches(typeName, "ENUM")) {
             // Build up the character array based upon the column's type ...
             List<String> options = extractEnumAndSetOptions(column);
-            return (data) -> convertEnumToString(options, column, fieldDefn, data);
+            return enhancedAvroSchemaTypes ? 
+                    (data) -> convertEnumToInteger(options, column, fieldDefn, data) :
+                    (data) -> convertEnumToString(options, column, fieldDefn, data);
         }
         if (matches(typeName, "SET")) {
             // Build up the character array based upon the column's type ...
@@ -445,6 +447,44 @@ public class MySqlValueConverters extends JdbcValueConverters {
                 }
             }
             return null;
+        }
+        return handleUnknownData(column, fieldDefn, data);
+    }
+
+
+    /**
+     * Converts a value object for a MySQL {@code ENUM}, which is represented in the binlog events as an integer value containing
+     * the index of the enum option. The MySQL JDBC driver returns a string containing the option,
+     * so this method converts the string value into its ordinal.
+     *
+     * @param options the characters that appear in the same order as defined in the column; may not be null
+     * @param column the column definition describing the {@code data} value; never null
+     * @param fieldDefn the field definition; never null
+     * @param data the data object to be converted into an {@code ENUM} literal String value
+     * @return the converted value, or null if the conversion could not be made and the column allows nulls
+     * @throws IllegalArgumentException if the value could not be converted but the column does not allow nulls
+     */
+    protected Object convertEnumToInteger(List<String> options, Column column, Field fieldDefn, Object data) {
+        if (data == null) {
+            data = fieldDefn.schema().defaultValue();
+        }
+        if (data == null) {
+            if (column.isOptional()) return null;
+            return 0;
+        }
+        if (data instanceof String) {
+            // JDBC returns strings ...
+            if (options == null) {
+                return null;
+            }
+            final int ord = options.indexOf(data);
+            if (ord == -1) {
+                return handleUnknownData(column, fieldDefn, data);
+            }
+            return ord;
+        }
+        if (data instanceof Integer) {
+            return data;
         }
         return handleUnknownData(column, fieldDefn, data);
     }
