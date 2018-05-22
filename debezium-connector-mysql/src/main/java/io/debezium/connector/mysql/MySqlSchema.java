@@ -425,4 +425,11 @@ public class MySqlSchema {
             return tableIdCaseInsensitive ? tableId.toLowercase() : tableId;
         }
     }
+
+    /**
+     * @return true if only monitored tables should be stored in dataase history, false if all tables should be stored
+     */
+    public boolean isStoreOnlyMonitoredTablesDdl() {
+        return storeOnlyMonitoredTablesDdl;
+    }
 }

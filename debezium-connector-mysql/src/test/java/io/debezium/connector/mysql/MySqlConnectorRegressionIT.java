@@ -39,6 +39,7 @@ import io.debezium.data.Envelope;
 import io.debezium.doc.FixFor;
 import io.debezium.embedded.AbstractConnectorTest;
 import io.debezium.jdbc.TemporalPrecisionMode;
+import io.debezium.relational.history.DatabaseHistory;
 import io.debezium.time.ZonedTimestamp;
 import io.debezium.util.Testing;
 
@@ -859,6 +860,7 @@ public class MySqlConnectorRegressionIT extends AbstractConnectorTest {
                               .with(MySqlConnectorConfig.TABLE_WHITELIST, DATABASE.qualifiedTableName("dbz_147_decimalvalues"))
                               .with(MySqlConnectorConfig.INCLUDE_SCHEMA_CHANGES, true)
                               .with(MySqlConnectorConfig.DECIMAL_HANDLING_MODE, DecimalHandlingMode.STRING)
+                              .with(DatabaseHistory.STORE_ONLY_MONITORED_TABLES_DDL, true)
                               .build();
         // Start the connector ...
         start(MySqlConnector.class, config);
@@ -870,6 +872,7 @@ public class MySqlConnectorRegressionIT extends AbstractConnectorTest {
         int ddlRecords = 6;
         int numDataRecords = 1;
         SourceRecords records = consumeRecordsByTopic(ddlRecords + numDataRecords);
+        records.forEach(System.out::println);
         stopConnector();
         assertThat(records).isNotNull();
         assertThat(records.recordsForTopic(DATABASE.getServerName()).size()).isEqualTo(ddlRecords);
