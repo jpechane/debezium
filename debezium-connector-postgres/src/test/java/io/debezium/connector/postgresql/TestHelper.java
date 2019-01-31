@@ -227,6 +227,10 @@ public final class TestHelper {
     }
 
     protected static int waitTimeForRecords() {
-        return Integer.parseInt(System.getProperty(TEST_PROPERTY_PREFIX + "records.waittime", "2"));
+        return Integer.parseInt(System.getProperty(TEST_PROPERTY_PREFIX + "records.waittime", "5"));
+    }
+
+    protected static String getVersionString() {
+        return System.getProperty("version.postgres.server", "9.6");
     }
 }

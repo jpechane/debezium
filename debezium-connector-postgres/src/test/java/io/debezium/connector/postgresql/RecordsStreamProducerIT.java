@@ -973,7 +973,10 @@ public class RecordsStreamProducerIT extends AbstractRecordsProducerTest {
 
     @Test
     @FixFor("DBZ-842")
-    public void shouldNotPropagateUnchangedToastedData() throws Exception {
+    public void shouldNotPropagateUnchangedToastedDataVersion9And10() throws Exception {
+        if (isPostgres11()) {
+            return;
+        }
         PostgresConnectorConfig config = new PostgresConnectorConfig(TestHelper.defaultConfig()
                 .with(PostgresConnectorConfig.SCHEMA_REFRESH_MODE, PostgresConnectorConfig.SchemaRefreshMode.COLUMNS_DIFF_EXCLUDE_UNCHANGED_TOAST)
                 .build());
@@ -1045,6 +1048,89 @@ public class RecordsStreamProducerIT extends AbstractRecordsProducerTest {
                 new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, null),
                 new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
         ), consumer.remove(), Envelope.FieldName.AFTER);
+    }
+
+    @Test
+    @FixFor("DBZ-842")
+    public void shouldNotPropagateUnchangedToastedDataVersion11() throws Exception {
+        if (!isPostgres11()) {
+            return;
+        }
+        PostgresConnectorConfig config = new PostgresConnectorConfig(TestHelper.defaultConfig()
+                .with(PostgresConnectorConfig.SCHEMA_REFRESH_MODE, PostgresConnectorConfig.SchemaRefreshMode.COLUMNS_DIFF_EXCLUDE_UNCHANGED_TOAST)
+                .build());
+        setupRecordsProducer(config);
+
+        final String toastedValue1 = RandomStringUtils.randomAlphanumeric(10000);
+        final String toastedValue2 = RandomStringUtils.randomAlphanumeric(10000);
+        final String toastedValue3 = RandomStringUtils.randomAlphanumeric(7900);
+
+        // inserting a toasted value should /always/ produce a correct record
+        String statement =
+                "ALTER TABLE test_table ADD COLUMN not_toast integer;"
+              + "ALTER TABLE test_table ADD COLUMN mandatory_text TEXT NOT NULL DEFAULT '" + toastedValue3 + "';"
+              + "INSERT INTO test_table (not_toast, text, mandatory_text) values (10, '" + toastedValue1 + "', '" + toastedValue1 + "');"
+              + "INSERT INTO test_table (not_toast, text, mandatory_text) values (10, '" + toastedValue2 + "', '" + toastedValue2 + "');";
+        consumer = testConsumer(2);
+        recordsProducer.start(consumer, blackHole);
+        executeAndWait(statement);
+
+        // after record should contain the toasted value
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 10),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, toastedValue1),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, toastedValue1)
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 10),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, toastedValue2),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, toastedValue2)
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+
+        statement =
+                "UPDATE test_table SET not_toast = 2;"
+              + "UPDATE test_table SET not_toast = 3;";
+
+        consumer.expects(6);
+        executeAndWait(statement);
+        consumer.process(record -> {
+            Table tbl = recordsProducer.schema().tableFor(TableId.parse("public.test_table"));
+            assertEquals(Arrays.asList("pk", "text", "not_toast", "mandatory_text"), tbl.retrieveColumnNames());
+        });
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 2),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, "insert"),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, toastedValue3)
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 2),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, null),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 2),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, null),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 3),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, "insert"),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 3),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, null),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+        assertRecordSchemaAndValues(Arrays.asList(
+                new SchemaAndValueField("not_toast", SchemaBuilder.OPTIONAL_INT32_SCHEMA, 3),
+                new SchemaAndValueField("text", SchemaBuilder.OPTIONAL_STRING_SCHEMA, null),
+                new SchemaAndValueField("mandatory_text", SchemaBuilder.STRING_SCHEMA, "")
+        ), consumer.remove(), Envelope.FieldName.AFTER);
+    }
+
+    private boolean isPostgres11() {
+        return TestHelper.getVersionString().startsWith("11");
     }
 
     @Test
