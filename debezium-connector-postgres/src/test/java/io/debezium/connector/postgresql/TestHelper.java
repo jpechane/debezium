@@ -17,6 +17,9 @@ import java.sql.SQLException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.config.Configuration;
 import io.debezium.connector.postgresql.PostgresConnectorConfig.SecureConnectionMode;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
@@ -35,6 +38,7 @@ public final class TestHelper {
     protected static final String TEST_DATABASE = "test_database";
     protected static final String PK_FIELD = "pk";
     private static final String TEST_PROPERTY_PREFIX = "debezium.test.";
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestHelper.class);
 
     /**
      * Key for schema parameter used to store DECIMAL/NUMERIC columns' precision.
@@ -232,5 +236,14 @@ public final class TestHelper {
 
     protected static String getVersionString() {
         return System.getProperty("version.postgres.server", "9.6");
+    }
+
+    protected static void dropDefaultReplicationSlot() {
+        try {
+            execute("SELECT pg_drop_replication_slot('" + ReplicationConnection.Builder.DEFAULT_SLOT_NAME + "')");
+        }
+        catch (Exception e) {
+            LOGGER.debug("Error while dropping default replication slot", e);
+        }
     }
 }
