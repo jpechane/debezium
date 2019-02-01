@@ -420,4 +420,8 @@ public class RecordsSnapshotProducer extends RecordsProducer {
 
         return snapshotSelectOverridesByTable;
     }
+
+    boolean isStreamingRunning() {
+        return streamProducer.isPresent() && streamProducer.get().isStreamingRunning();
+    }
 }

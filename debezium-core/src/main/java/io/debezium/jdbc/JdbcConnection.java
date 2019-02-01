@@ -767,6 +767,8 @@ public class JdbcConnection implements AutoCloseable {
             try {
                 statementCache.values().forEach(this::cleanupPreparedStatement);
                 statementCache.clear();
+                LOGGER.trace("Closing database connection");
+                (new Exception()).printStackTrace(System.out);
                 conn.close();
             } finally {
                 conn = null;
@@ -1068,6 +1070,9 @@ public class JdbcConnection implements AutoCloseable {
         Connection conn = connection();
         try (Statement statement = conn.createStatement()) {
             for (String stmt : statements) {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Executing statement {}", stmt);
+                }
                 statement.execute(stmt);
             }
         }

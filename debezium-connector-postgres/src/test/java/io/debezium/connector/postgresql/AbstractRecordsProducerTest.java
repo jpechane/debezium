@@ -47,6 +47,10 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.data.Bits;
 import io.debezium.data.Json;
@@ -59,6 +63,7 @@ import io.debezium.data.geometry.Geography;
 import io.debezium.data.geometry.Geometry;
 import io.debezium.data.geometry.Point;
 import io.debezium.function.BlockingConsumer;
+import io.debezium.junit.TestLogger;
 import io.debezium.relational.TableId;
 import io.debezium.time.Date;
 import io.debezium.time.MicroDuration;
@@ -69,6 +74,7 @@ import io.debezium.time.Timestamp;
 import io.debezium.time.ZonedTime;
 import io.debezium.time.ZonedTimestamp;
 import io.debezium.util.VariableLatch;
+import io.debezium.util.Wait;
 
 /**
  * Base class for the integration tests for the different {@link RecordsProducer} instances
@@ -76,6 +82,11 @@ import io.debezium.util.VariableLatch;
  * @author Horia Chiorean (hchiorea@redhat.com)
  */
 public abstract class AbstractRecordsProducerTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRecordsProducerTest.class);
+
+    @Rule
+    public TestRule logTestName = new TestLogger(LOGGER);
 
     protected static final Pattern INSERT_TABLE_MATCHING_PATTERN = Pattern.compile("insert into (.*)\\(.*\\) VALUES .*", Pattern.CASE_INSENSITIVE);
 
@@ -880,5 +891,9 @@ public abstract class AbstractRecordsProducerTest {
                 fail("Consumer is still expecting " + latch.getCount() + " records, as it received only " + records.size());
             }
         }
+    }
+
+    protected void waitForStreamingToStart(RecordsSnapshotProducer producer) throws InterruptedException {
+        Wait.condition(producer::isStreamingRunning);
     }
 }

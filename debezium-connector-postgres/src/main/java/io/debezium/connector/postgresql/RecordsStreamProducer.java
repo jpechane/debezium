@@ -606,4 +606,8 @@ public class RecordsStreamProducer extends RecordsProducer {
             )
             .setPrimaryKeyNames(table.filterColumnNames(c -> table.isPrimaryKeyColumn(c.name()))).create();
     }
+
+    boolean isStreamingRunning() {
+        return replicationStream.get() != null;
+    }
 }

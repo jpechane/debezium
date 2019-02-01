@@ -31,6 +31,7 @@ import io.debezium.connector.postgresql.TestHelper;
 import io.debezium.jdbc.JdbcConnection.ResultSetMapper;
 import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
+import io.debezium.util.Wait;
 
 /**
  * Integration test for {@link ReplicationConnection}

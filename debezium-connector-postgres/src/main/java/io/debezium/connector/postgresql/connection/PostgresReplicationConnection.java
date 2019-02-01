@@ -102,7 +102,6 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             // there's no info for this plugin and slot so create a new slot
             if (shouldCreateSlot) {
                 LOGGER.debug("Creating new replication slot '{}' for plugin '{}'", slotName, plugin);
-
                 // creating a temporary slot if it should be dropped an we're on 10 or newer;
                 // this is not supported through the API yet
                 // see https://github.com/pgjdbc/pgjdbc/issues/1305
@@ -339,6 +338,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
     @Override
     public synchronized void close() {
         try {
+            LOGGER.debug("Closing replication connection");
             super.close();
         }
         catch (Throwable e) {
