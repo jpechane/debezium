@@ -331,4 +331,20 @@ public final class SourceInfo extends AbstractSourceInfo {
         sb.append(']');
         return sb.toString();
     }
+
+    Long getLsn() {
+        return lsn;
+    }
+
+    Long getTxId() {
+        return txId;
+    }
+
+    Long getUseconds() {
+        return useconds;
+    }
+
+    Boolean isLastSnapshotRecord() {
+        return lastSnapshotRecord;
+    }
 }

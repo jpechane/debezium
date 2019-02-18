@@ -3,7 +3,7 @@
  *
  * Licensed under the Apache Software License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.debezium.connector.sqlserver;
+package io.debezium.connector.postgresql;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -29,9 +29,9 @@ import io.debezium.schema.SchemaChangeEvent;
 import io.debezium.schema.SchemaChangeEvent.SchemaChangeEventType;
 import io.debezium.util.Clock;
 
-public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnapshotChangeEventSource {
+public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnapshotChangeEventSource {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerSnapshotChangeEventSource.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PostgresSnapshotChangeEventSource.class);
 
     /**
      * Code 4096 corresponds to SNAPSHOT isolation level, which is not a part of the standard but SQL Server specific.
@@ -41,7 +41,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
     private final SqlServerConnectorConfig connectorConfig;
     private final SqlServerConnection jdbcConnection;
 
-    public SqlServerSnapshotChangeEventSource(SqlServerConnectorConfig connectorConfig, SqlServerOffsetContext previousOffset, SqlServerConnection jdbcConnection, SqlServerDatabaseSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
+    public PostgresSnapshotChangeEventSource(SqlServerConnectorConfig connectorConfig, PostgresOffsetContext previousOffset, SqlServerConnection jdbcConnection, PostgresDatabaseSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
         super(connectorConfig, previousOffset, jdbcConnection, schema, dispatcher, clock, snapshotProgressListener);
         this.connectorConfig = connectorConfig;
         this.jdbcConnection = jdbcConnection;
@@ -79,7 +79,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
 
     @Override
     protected void connectionCreated(SnapshotContext snapshotContext) throws Exception {
-        ((SqlServerSnapshotContext) snapshotContext).isolationLevelBeforeStart = jdbcConnection.connection().getTransactionIsolation();
+        ((SqlServerSnapshotContext)snapshotContext).isolationLevelBeforeStart = jdbcConnection.connection().getTransactionIsolation();
 
         if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.SNAPSHOT) {
             // Terminate any transaction in progress so we can change the isolation level
@@ -109,7 +109,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
         else if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.EXCLUSIVE
                 || connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.REPEATABLE_READ) {
             jdbcConnection.connection().setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-                ((SqlServerSnapshotContext) snapshotContext).preSchemaSnapshotSavepoint = jdbcConnection.connection().setSavepoint("dbz_schema_snapshot");
+            ((SqlServerSnapshotContext)snapshotContext).preSchemaSnapshotSavepoint = jdbcConnection.connection().setSavepoint("dbz_schema_snapshot");
 
             LOGGER.info("Executing schema locking");
             try (Statement statement = jdbcConnection.connection().createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
@@ -135,14 +135,14 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
         // Exclusive mode: locks should be kept until the end of transaction.
         // read_uncommitted mode; snapshot mode: no locks have been acquired.
         if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.REPEATABLE_READ) {
-            jdbcConnection.connection().rollback(((SqlServerSnapshotContext) snapshotContext).preSchemaSnapshotSavepoint);
+            jdbcConnection.connection().rollback(((SqlServerSnapshotContext)snapshotContext).preSchemaSnapshotSavepoint);
             LOGGER.info("Schema locks released.");
         }
     }
 
     @Override
     protected void determineSnapshotOffset(SnapshotContext ctx) throws Exception {
-        ctx.offset = new SqlServerOffsetContext(
+        ctx.offset = new PostgresOffsetContext(
                 connectorConfig.getLogicalName(),
                 TxLogPosition.valueOf(jdbcConnection.getMaxLsn()),
                 false,
@@ -185,7 +185,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
     @Override
     protected void complete(SnapshotContext snapshotContext) {
         try {
-            jdbcConnection.connection().setTransactionIsolation(((SqlServerSnapshotContext) snapshotContext).isolationLevelBeforeStart);
+            jdbcConnection.connection().setTransactionIsolation(((SqlServerSnapshotContext)snapshotContext).isolationLevelBeforeStart);
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to set transaction isolation level.", e);
@@ -199,7 +199,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
 
     @Override
     protected ChangeRecordEmitter getChangeRecordEmitter(SnapshotContext snapshotContext, Object[] row) {
-        ((SqlServerOffsetContext) snapshotContext.offset).setSourceTime(Instant.ofEpochMilli(getClock().currentTimeInMillis()));
+        ((PostgresOffsetContext) snapshotContext.offset).setSourceTime(Instant.ofEpochMilli(getClock().currentTimeInMillis()));
         return new SqlServerSnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
     }
 
