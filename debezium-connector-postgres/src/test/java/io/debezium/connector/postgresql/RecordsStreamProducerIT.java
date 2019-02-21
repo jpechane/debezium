@@ -24,6 +24,7 @@ import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.fest.assertions.Assertions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -181,6 +182,16 @@ public class RecordsStreamProducerIT extends AbstractRecordsProducerTest {
         final SourceRecord record = consumer.remove();
         VerifyRecord.isValidUpdate(record, "pk", 1);
         VerifyRecord.isValid(record);
+        final Struct before = ((Struct)record.value()).getStruct("before");
+        if (before != null) {
+            Assertions.assertThat(before.get("created_at")).isEqualTo(new java.util.Date(0));
+            Assertions.assertThat(before.get("created_at_tz")).isEqualTo("1970-01-01T00:00:00Z");
+            Assertions.assertThat(before.get("ctime")).isEqualTo(new java.util.Date(0));
+            Assertions.assertThat(before.get("ctime_tz")).isEqualTo("00:00:00Z");
+            Assertions.assertThat(before.get("cdate")).isEqualTo(new java.util.Date(0));
+            Assertions.assertThat(before.get("cmoney")).isEqualTo(new BigDecimal("0.00"));
+            Assertions.assertThat(before.get("cbits")).isEqualTo(new byte[0]);
+        }
     }
 
     @Test(timeout = 30000)
