@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.kafka.connect.errors.ConnectException;
@@ -58,7 +59,7 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
     private final RelationalDatabaseConnectorConfig connectorConfig;
     private final OffsetContext previousOffset;
     private final JdbcConnection jdbcConnection;
-    private final HistorizedRelationalDatabaseSchema schema;
+    private final Optional<HistorizedRelationalDatabaseSchema> schema;
     private final EventDispatcher<TableId> dispatcher;
     private final Clock clock;
     private final SnapshotProgressListener snapshotProgressListener;
@@ -69,10 +70,16 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
         this.connectorConfig = connectorConfig;
         this.previousOffset = previousOffset;
         this.jdbcConnection = jdbcConnection;
-        this.schema = schema;
+        this.schema = Optional.ofNullable(schema);
         this.dispatcher = dispatcher;
         this.clock = clock;
         this.snapshotProgressListener = snapshotProgressListener;
+    }
+
+    public HistorizedRelationalSnapshotChangeEventSource(RelationalDatabaseConnectorConfig connectorConfig,
+            OffsetContext previousOffset, JdbcConnection jdbcConnection,
+            EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
+        this(connectorConfig, previousOffset, jdbcConnection, null, dispatcher, clock, snapshotProgressListener);
     }
 
     @Override
@@ -264,6 +271,9 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
     protected abstract void releaseSchemaSnapshotLocks(SnapshotContext snapshotContext) throws Exception;
 
     private void createSchemaChangeEventsForTables(ChangeEventSourceContext sourceContext, SnapshotContext snapshotContext) throws Exception {
+        if (!schema.isPresent()) {
+            return;
+        }
         for (TableId tableId : snapshotContext.capturedTables) {
             if (!sourceContext.isRunning()) {
                 throw new InterruptedException("Interrupted while capturing schema of table " + tableId);
@@ -273,7 +283,7 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
 
             Table table = snapshotContext.tables.forTable(tableId);
 
-            schema.applySchemaChange(getCreateTableEvent(snapshotContext, table));
+            schema.get().applySchemaChange(getCreateTableEvent(snapshotContext, table));
         }
     }
 
@@ -292,6 +302,7 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
             }
 
             LOGGER.debug("Snapshotting table {}", tableId);
+            snapshotContext.snapshottedTable = tableId;
 
             createDataEventsForTable(sourceContext, snapshotContext, snapshotReceiver, snapshotContext.tables.forTable(tableId));
         }
@@ -420,6 +431,7 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
 
         public Set<TableId> capturedTables;
         public OffsetContext offset;
+        public TableId snapshottedTable;
 
         public SnapshotContext(String catalogName) throws SQLException {
             this.catalogName = catalogName;

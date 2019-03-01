@@ -249,7 +249,8 @@ public final class SourceInfo extends AbstractSourceInfo {
      * @return the source partition and offset {@link Struct}; never null
      * @see #schema()
      */
-    protected Struct source() {
+    @Override
+    protected Struct struct() {
         assert serverName != null
                 && dbName != null
                 && schemaName != null

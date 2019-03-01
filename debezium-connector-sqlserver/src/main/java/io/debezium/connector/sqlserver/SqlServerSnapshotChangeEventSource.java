@@ -22,6 +22,7 @@ import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.SnapshotChangeRecordEmitter;
 import io.debezium.relational.HistorizedRelationalSnapshotChangeEventSource;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -200,7 +201,7 @@ public class SqlServerSnapshotChangeEventSource extends HistorizedRelationalSnap
     @Override
     protected ChangeRecordEmitter getChangeRecordEmitter(SnapshotContext snapshotContext, Object[] row) {
         ((SqlServerOffsetContext) snapshotContext.offset).setSourceTime(Instant.ofEpochMilli(getClock().currentTimeInMillis()));
-        return new SqlServerSnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
+        return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
     }
 
     /**

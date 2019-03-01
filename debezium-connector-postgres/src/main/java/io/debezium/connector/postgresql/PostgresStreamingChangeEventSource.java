@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
@@ -72,7 +73,7 @@ public class PostgresStreamingChangeEventSource implements StreamingChangeEventS
     private final Duration pollInterval;
     private final SqlServerConnectorConfig connectorConfig;
 
-    public PostgresStreamingChangeEventSource(SqlServerConnectorConfig connectorConfig, PostgresOffsetContext offsetContext, SqlServerConnection connection, EventDispatcher<TableId> dispatcher, ErrorHandler errorHandler, Clock clock, PostgresDatabaseSchema schema) {
+    public PostgresStreamingChangeEventSource(PostgresConnectorConfig connectorConfig, PostgresOffsetContext offsetContext, JdbcConnection connection, EventDispatcher<TableId> dispatcher, ErrorHandler errorHandler, Clock clock, PostgresSchema schema) {
         this.connectorConfig = connectorConfig;
         this.connection = connection;
         this.dispatcher = dispatcher;

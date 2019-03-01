@@ -27,11 +27,11 @@ public class SourceInfoTest {
 
     @Test
     public void versionIsPresent() {
-        assertThat(source.source().getString(SourceInfo.DEBEZIUM_VERSION_KEY)).isEqualTo(Module.version());
+        assertThat(source.struct().getString(SourceInfo.DEBEZIUM_VERSION_KEY)).isEqualTo(Module.version());
     }
 
     @Test
     public void connectorIsPresent() {
-        assertThat(source.source().getString(SourceInfo.DEBEZIUM_CONNECTOR_KEY)).isEqualTo(Module.name());
+        assertThat(source.struct().getString(SourceInfo.DEBEZIUM_CONNECTOR_KEY)).isEqualTo(Module.name());
     }
 }

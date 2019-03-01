@@ -5,7 +5,6 @@
  */
 package io.debezium.connector.postgresql;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,32 +13,31 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 
 import io.debezium.pipeline.spi.OffsetContext;
-import io.debezium.util.Collect;
+import io.debezium.relational.TableId;
 
 public class PostgresOffsetContext implements OffsetContext {
 
     private static final String SERVER_PARTITION_KEY = "server";
-    private static final String SNAPSHOT_COMPLETED_KEY = "snapshot_completed";
+    public static final String LAST_SNAPSHOT_RECORD_KEY = "last_snapshot_record";
 
     private final Schema sourceInfoSchema;
     private final SourceInfo sourceInfo;
     private final Map<String, String> partition;
-    private boolean snapshotCompleted;
+    private boolean lastSnapshotRecord;
 
-    public PostgresOffsetContext(String serverName, TxLogPosition position, boolean snapshot, boolean snapshotCompleted) {
+    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long txId, Long time, boolean snapshot, boolean lastSnapshotRecord) {
         partition = Collections.singletonMap(SERVER_PARTITION_KEY, serverName);
-        sourceInfo = new SourceInfo(serverName);
+        sourceInfo = new SourceInfo(serverName, databaseName);
 
-        sourceInfo.setCommitLsn(position.getCommitLsn());
-        sourceInfo.setChangeLsn(position.getInTxLsn());
+        sourceInfo.update(lsn, time, txId, null);
         sourceInfoSchema = sourceInfo.schema();
 
-        this.snapshotCompleted = snapshotCompleted;
-        if (this.snapshotCompleted) {
+        this.lastSnapshotRecord = lastSnapshotRecord;
+        if (this.lastSnapshotRecord) {
             postSnapshotCompletion();
         }
-        else {
-            sourceInfo.setSnapshot(snapshot);
+        else if (snapshot) {
+            sourceInfo.startSnapshot();
         }
     }
 
@@ -60,7 +58,7 @@ public class PostgresOffsetContext implements OffsetContext {
         if (sourceInfo.getLsn() != null) {
             result.put(SourceInfo.LSN_KEY, sourceInfo.getLsn());
         }
-        if (!snapshotCompleted) {
+        if (isSnapshotRunning() || lastSnapshotRecord) {
             result.put(SourceInfo.SNAPSHOT_KEY, true);
             result.put(SourceInfo.LAST_SNAPSHOT_RECORD_KEY, sourceInfo.isLastSnapshotRecord());
         }
@@ -77,50 +75,40 @@ public class PostgresOffsetContext implements OffsetContext {
         return sourceInfo.struct();
     }
 
-    public TxLogPosition getChangePosition() {
-        return TxLogPosition.valueOf(sourceInfo.getCommitLsn(), sourceInfo.getChangeLsn());
-    }
-
-    public void setChangePosition(TxLogPosition position) {
-        sourceInfo.setCommitLsn(position.getCommitLsn());
-        sourceInfo.setChangeLsn(position.getInTxLsn());
-    }
-
-    public void setSourceTime(Instant instant) {
-        sourceInfo.setSourceTime(instant);
-    }
-
     @Override
     public boolean isSnapshotRunning() {
-        return sourceInfo.isSnapshot() && !snapshotCompleted;
-    }
-
-    public boolean isSnapshotCompleted() {
-        return snapshotCompleted;
+        return sourceInfo.isSnapshotInEffect();
     }
 
     @Override
     public void preSnapshotStart() {
-        sourceInfo.setSnapshot(true);
-        snapshotCompleted = false;
+        sourceInfo.startSnapshot();
     }
 
     @Override
     public void preSnapshotCompletion() {
-        snapshotCompleted = true;
+        lastSnapshotRecord = true;
+        sourceInfo.markLastSnapshotRecord();
     }
 
     @Override
     public void postSnapshotCompletion() {
-        sourceInfo.setSnapshot(false);
+        sourceInfo.completeSnapshot();
+        lastSnapshotRecord = false;
+    }
+
+    public void updateSnapshotPosition(long time, TableId tableId) {
+        sourceInfo.update(time, tableId);
     }
 
     public static class Loader implements OffsetContext.Loader {
 
         private final String logicalName;
+        private final String databaseName;
 
-        public Loader(String logicalName) {
+        public Loader(String logicalName, String databaseName) {
             this.logicalName = logicalName;
+            this.databaseName = databaseName;
         }
 
         @Override
@@ -128,24 +116,22 @@ public class PostgresOffsetContext implements OffsetContext {
             return Collections.singletonMap(SERVER_PARTITION_KEY, logicalName);
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public OffsetContext load(Map<String, ?> offset) {
-            final Lsn changeLsn = Lsn.valueOf((String)offset.get(SourceInfo.CHANGE_LSN_KEY));
-            final Lsn commitLsn = Lsn.valueOf((String)offset.get(SourceInfo.COMMIT_LSN_KEY));
-            boolean snapshot = Boolean.TRUE.equals(offset.get(SourceInfo.SNAPSHOT_KEY));
-            boolean snapshotCompleted = Boolean.TRUE.equals(offset.get(SNAPSHOT_COMPLETED_KEY));
-
-            return new PostgresOffsetContext(logicalName, TxLogPosition.valueOf(commitLsn, changeLsn), snapshot, snapshotCompleted);
+            final long lsn = ((Number)offset.get(SourceInfo.LSN_KEY)).longValue();
+            final long txId = ((Number)offset.get(SourceInfo.TXID_KEY)).longValue();
+            final long useconds = (Long)offset.get(SourceInfo.TIMESTAMP_KEY);
+            final boolean snapshot = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.SNAPSHOT_KEY, Boolean.FALSE);
+            final boolean lastSnapshotRecord = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.LAST_SNAPSHOT_RECORD_KEY, Boolean.FALSE);
+            return new PostgresOffsetContext(logicalName, databaseName, lsn, txId, useconds, snapshot, lastSnapshotRecord); 
         }
     }
 
     @Override
     public String toString() {
-        return "SqlServerOffsetContext [" +
-                "sourceInfoSchema=" + sourceInfoSchema +
-                ", sourceInfo=" + sourceInfo +
-                ", partition=" + partition +
-                ", snapshotCompleted=" + snapshotCompleted +
-                "]";
+        return "PostgresOffsetContext [sourceInfo=" + sourceInfo
+                + ", partition=" + partition
+                + ", lastSnapshotRecord=" + lastSnapshotRecord + "]";
     }
 }

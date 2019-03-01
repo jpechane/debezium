@@ -5,23 +5,20 @@
  */
 package io.debezium.connector.postgresql;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.time.Instant;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.debezium.connector.sqlserver.SqlServerConnectorConfig.SnapshotIsolationMode;
+import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.SnapshotChangeRecordEmitter;
 import io.debezium.relational.HistorizedRelationalSnapshotChangeEventSource;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -33,18 +30,15 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PostgresSnapshotChangeEventSource.class);
 
-    /**
-     * Code 4096 corresponds to SNAPSHOT isolation level, which is not a part of the standard but SQL Server specific.
-     */
-    private static final int TRANSACTION_SNAPSHOT = 4096;
+    private final PostgresConnectorConfig connectorConfig;
+    private final PostgresConnection jdbcConnection;
+    private final PostgresSchema schema;
 
-    private final SqlServerConnectorConfig connectorConfig;
-    private final SqlServerConnection jdbcConnection;
-
-    public PostgresSnapshotChangeEventSource(SqlServerConnectorConfig connectorConfig, PostgresOffsetContext previousOffset, SqlServerConnection jdbcConnection, PostgresDatabaseSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
-        super(connectorConfig, previousOffset, jdbcConnection, schema, dispatcher, clock, snapshotProgressListener);
+    public PostgresSnapshotChangeEventSource(PostgresConnectorConfig connectorConfig, PostgresOffsetContext previousOffset, PostgresConnection jdbcConnection, PostgresSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
+        super(connectorConfig, previousOffset, jdbcConnection, dispatcher, clock, snapshotProgressListener);
         this.connectorConfig = connectorConfig;
         this.jdbcConnection = jdbcConnection;
+        this.schema = schema;
     }
 
     @Override
@@ -74,21 +68,15 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
 
     @Override
     protected SnapshotContext prepare(ChangeEventSourceContext context) throws Exception {
-        return new SqlServerSnapshotContext(jdbcConnection.getRealDatabaseName());
+        return new PostgresSnapshotContext();
     }
 
     @Override
     protected void connectionCreated(SnapshotContext snapshotContext) throws Exception {
-        ((SqlServerSnapshotContext)snapshotContext).isolationLevelBeforeStart = jdbcConnection.connection().getTransactionIsolation();
-
-        if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.SNAPSHOT) {
-            // Terminate any transaction in progress so we can change the isolation level
-            jdbcConnection.connection().rollback();
-            // With one exception, you can switch from one isolation level to another at any time during a transaction.
-            // The exception occurs when changing from any isolation level to SNAPSHOT isolation.
-            // That is why SNAPSHOT isolation level has to be set at the very beginning of the transaction.
-            jdbcConnection.connection().setTransactionIsolation(TRANSACTION_SNAPSHOT);
-        }
+        LOGGER.info("Setting isolation level");
+        // we're using the same isolation level that pg_backup uses
+        jdbcConnection.executeWithoutCommitting("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE, READ ONLY, DEFERRABLE;");
+        schema.refresh(jdbcConnection, false);
     }
 
     @Override
@@ -98,56 +86,42 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
 
     @Override
     protected void lockTablesForSchemaSnapshot(ChangeEventSourceContext sourceContext, SnapshotContext snapshotContext) throws SQLException, InterruptedException {
-        if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.READ_UNCOMMITTED) {
-            jdbcConnection.connection().setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
-            LOGGER.info("Schema locking was disabled in connector configuration");
-        }
-        else if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.SNAPSHOT) {
-            // Snapshot transaction isolation level has already been set.
-            LOGGER.info("Schema locking was disabled in connector configuration");
-        }
-        else if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.EXCLUSIVE
-                || connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.REPEATABLE_READ) {
-            jdbcConnection.connection().setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-            ((SqlServerSnapshotContext)snapshotContext).preSchemaSnapshotSavepoint = jdbcConnection.connection().setSavepoint("dbz_schema_snapshot");
+        final long lockTimeoutMillis = connectorConfig.snapshotLockTimeoutMillis();
+        final String lineSeparator = System.lineSeparator();
+        LOGGER.info("Waiting a maximum of '{}' seconds for each table lock", lockTimeoutMillis / 1000d);
+        final StringBuilder statements = new StringBuilder();
+        statements.append("SET lock_timeout = ").append(lockTimeoutMillis).append(";").append(lineSeparator);
 
-            LOGGER.info("Executing schema locking");
-            try (Statement statement = jdbcConnection.connection().createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-                for (TableId tableId : snapshotContext.capturedTables) {
-                    if (!sourceContext.isRunning()) {
-                        throw new InterruptedException("Interrupted while locking table " + tableId);
-                    }
+        // we're locking in SHARE UPDATE EXCLUSIVE MODE to avoid concurrent schema changes while we're taking the snapshot
+        // this does not prevent writes to the table, but prevents changes to the table's schema....
+        // DBZ-298 Quoting name in case it has been quoted originally; it doesn't do harm if it hasn't been quoted
+        snapshotContext.capturedTables.forEach(tableId -> statements.append("LOCK TABLE ")
+                                                     .append(tableId.toDoubleQuotedString())
+                                                     .append(" IN SHARE UPDATE EXCLUSIVE MODE;")
+                                                     .append(lineSeparator));
+        jdbcConnection.executeWithoutCommitting(statements.toString());
 
-                    LOGGER.info("Locking table {}", tableId);
-
-                    String query = String.format("SELECT * FROM [%s].[%s] WITH (TABLOCKX)", tableId.schema(), tableId.table());
-                    statement.executeQuery(query).close();
-                }
-            }
-        }
-        else {
-            throw new IllegalStateException("Unknown locking mode specified.");
-        }
+        //now that we have the locks, refresh the schema
+        schema.refresh(jdbcConnection, false);
     }
 
     @Override
     protected void releaseSchemaSnapshotLocks(SnapshotContext snapshotContext) throws SQLException {
-        // Exclusive mode: locks should be kept until the end of transaction.
-        // read_uncommitted mode; snapshot mode: no locks have been acquired.
-        if (connectorConfig.getSnapshotIsolationMode() == SnapshotIsolationMode.REPEATABLE_READ) {
-            jdbcConnection.connection().rollback(((SqlServerSnapshotContext)snapshotContext).preSchemaSnapshotSavepoint);
-            LOGGER.info("Schema locks released.");
-        }
     }
 
     @Override
     protected void determineSnapshotOffset(SnapshotContext ctx) throws Exception {
+        final long lsn = jdbcConnection.currentXLogLocation();
+        final long txId = jdbcConnection.currentTransactionId().longValue();
+        LOGGER.info("Read xlogStart at '{}' from transaction '{}'", ReplicationConnection.format(lsn), txId);
         ctx.offset = new PostgresOffsetContext(
                 connectorConfig.getLogicalName(),
-                TxLogPosition.valueOf(jdbcConnection.getMaxLsn()),
+                connectorConfig.databaseName(),
+                lsn,
+                txId,
+                getClock().currentTimeInMicros(),
                 false,
-                false
-        );
+                false);
     }
 
     @Override
@@ -174,6 +148,7 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
                     false
             );
         }
+        schema.refresh(jdbcConnection, false);
     }
 
     @Override
@@ -184,35 +159,26 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
 
     @Override
     protected void complete(SnapshotContext snapshotContext) {
-        try {
-            jdbcConnection.connection().setTransactionIsolation(((SqlServerSnapshotContext)snapshotContext).isolationLevelBeforeStart);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("Failed to set transaction isolation level.", e);
-        }
     }
 
     @Override
     protected String getSnapshotSelect(SnapshotContext snapshotContext, TableId tableId) {
-        return String.format("SELECT * FROM [%s].[%s]", tableId.schema(), tableId.table());
+        return String.format("SELECT * FROM %s", tableId.toDoubleQuotedString());
     }
 
     @Override
     protected ChangeRecordEmitter getChangeRecordEmitter(SnapshotContext snapshotContext, Object[] row) {
-        ((PostgresOffsetContext) snapshotContext.offset).setSourceTime(Instant.ofEpochMilli(getClock().currentTimeInMillis()));
-        return new SqlServerSnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
+        ((PostgresOffsetContext) snapshotContext.offset).updateSnapshotPosition(getClock().currentTimeInMicros(), snapshotContext.snapshottedTable);
+        return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
     }
 
     /**
      * Mutable context which is populated in the course of snapshotting.
      */
-    private static class SqlServerSnapshotContext extends SnapshotContext {
+    private static class PostgresSnapshotContext extends SnapshotContext {
 
-        private int isolationLevelBeforeStart;
-        private Savepoint preSchemaSnapshotSavepoint;
-
-        public SqlServerSnapshotContext(String catalogName) throws SQLException {
-            super(catalogName);
+        public PostgresSnapshotContext() throws SQLException {
+            super(null);
         }
     }
 

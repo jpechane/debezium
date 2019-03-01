@@ -23,10 +23,10 @@ public class PostgresChangeEventSourceFactory implements ChangeEventSourceFactor
     private final ErrorHandler errorHandler;
     private final EventDispatcher<TableId> dispatcher;
     private final Clock clock;
-    private final PostgresDatabaseSchema schema;
+    private final PostgresSchema schema;
 
     public PostgresChangeEventSourceFactory(PostgresConnectorConfig configuration, PostgresConnection jdbcConnection,
-            ErrorHandler errorHandler, EventDispatcher<TableId> dispatcher, Clock clock, PostgresDatabaseSchema schema) {
+            ErrorHandler errorHandler, EventDispatcher<TableId> dispatcher, Clock clock, PostgresSchema schema) {
         this.configuration = configuration;
         this.jdbcConnection = jdbcConnection;
         this.errorHandler = errorHandler;

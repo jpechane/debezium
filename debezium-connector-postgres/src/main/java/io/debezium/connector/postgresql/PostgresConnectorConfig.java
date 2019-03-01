@@ -7,35 +7,37 @@
 package io.debezium.connector.postgresql;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import io.debezium.config.CommonConnectorConfig;
-import io.debezium.config.Configuration;
-import io.debezium.config.EnumeratedValue;
-import io.debezium.config.Field;
-
-import io.debezium.connector.postgresql.snapshot.AlwaysSnapshotter;
-import io.debezium.connector.postgresql.snapshot.InitialOnlySnapshotter;
-import io.debezium.connector.postgresql.snapshot.InitialSnapshotter;
-import io.debezium.connector.postgresql.snapshot.NeverSnapshotter;
-import io.debezium.connector.postgresql.spi.Snapshotter;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigValue;
 
+import io.debezium.config.CommonConnectorConfig;
+import io.debezium.config.Configuration;
+import io.debezium.config.EnumeratedValue;
+import io.debezium.config.Field;
 import io.debezium.connector.postgresql.connection.MessageDecoder;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.connection.pgproto.PgProtoMessageDecoder;
 import io.debezium.connector.postgresql.connection.wal2json.NonStreamingWal2JsonMessageDecoder;
 import io.debezium.connector.postgresql.connection.wal2json.StreamingWal2JsonMessageDecoder;
+import io.debezium.connector.postgresql.snapshot.AlwaysSnapshotter;
+import io.debezium.connector.postgresql.snapshot.InitialOnlySnapshotter;
+import io.debezium.connector.postgresql.snapshot.InitialSnapshotter;
+import io.debezium.connector.postgresql.snapshot.NeverSnapshotter;
+import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
+import io.debezium.relational.Tables.TableFilter;
 
 
 /**
@@ -860,8 +862,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         super(
                 config,
                 getLogicalName(config),
-                null, // TODO whitelist handling implemented locally here for the time being
-                null
+                new SystemTablesPredicate(), x -> x.schema() + "." + x.table()
         );
 
         this.config = config;
@@ -1024,5 +1025,14 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             return 1;
         }
         return 0;
+    }
+
+    private static class SystemTablesPredicate implements TableFilter {
+        protected static final List<String> SYSTEM_SCHEMAS = Arrays.asList("pg_catalog", "information_schema");
+
+        @Override
+        public boolean isIncluded(TableId t) {
+            return !SYSTEM_SCHEMAS.contains(t.schema().toLowerCase());
+        }
     }
 }

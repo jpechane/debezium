@@ -308,7 +308,7 @@ public class RecordsStreamProducer extends RecordsProducer {
         Envelope envelope = tableSchema.getEnvelopeSchema();
 
         SourceRecord record = new SourceRecord(partition, offset, topicName, null, keySchema, key, envelope.schema(),
-                                               envelope.create(value, sourceInfo.source(), clock().currentTimeInMillis()));
+                                               envelope.create(value, sourceInfo.struct(), clock().currentTimeInMillis()));
         if (logger.isDebugEnabled()) {
             logger.debug("sending create event '{}' to topic '{}'", record, topicName);
         }
@@ -342,7 +342,7 @@ public class RecordsStreamProducer extends RecordsProducer {
         Map<String, ?> offset = sourceInfo.offset();
         String topicName = topicSelector().topicNameFor(tableId);
         Envelope envelope = tableSchema.getEnvelopeSchema();
-        Struct source = sourceInfo.source();
+        Struct source = sourceInfo.struct();
 
         if (oldKey != null && !Objects.equals(oldKey, newKey)) {
             // the primary key has changed, so we need to send a DELETE followed by a CREATE
@@ -411,7 +411,7 @@ public class RecordsStreamProducer extends RecordsProducer {
                 new SourceRecord(
                         partition, offset, topicName, null,
                         keySchema, key, envelope.schema(),
-                        envelope.delete(value, sourceInfo.source(), clock().currentTimeInMillis())),
+                        envelope.delete(value, sourceInfo.struct(), clock().currentTimeInMillis())),
                 lastCompletelyProcessedLsn);
         if (logger.isDebugEnabled()) {
             logger.debug("sending delete event '{}' to topic '{}'", changeEvent.getRecord(), topicName);
