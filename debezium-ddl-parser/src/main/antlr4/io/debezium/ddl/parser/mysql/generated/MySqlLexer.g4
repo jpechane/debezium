@@ -23,7 +23,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
 */
 
 lexer grammar MySqlLexer;
@@ -185,7 +184,6 @@ SQL_CALC_FOUND_ROWS:                 'SQL_CALC_FOUND_ROWS';
 SQL_SMALL_RESULT:                    'SQL_SMALL_RESULT';
 SSL:                                 'SSL';
 STARTING:                            'STARTING';
-STORED:                              'STORED';
 STRAIGHT_JOIN:                       'STRAIGHT_JOIN';
 TABLE:                               'TABLE';
 TERMINATED:                          'TERMINATED';
@@ -204,7 +202,6 @@ USAGE:                               'USAGE';
 USE:                                 'USE';
 USING:                               'USING';
 VALUES:                              'VALUES';
-VIRTUAL:                             'VIRTUAL';
 WHEN:                                'WHEN';
 WHERE:                               'WHERE';
 WHILE:                               'WHILE';
@@ -228,7 +225,6 @@ PRECISION:                           'PRECISION';
 FLOAT:                               'FLOAT';
 DECIMAL:                             'DECIMAL';
 DEC:                                 'DEC';
-FIXED:                               'FIXED';
 NUMERIC:                             'NUMERIC';
 DATE:                                'DATE';
 TIME:                                'TIME';
@@ -403,6 +399,7 @@ FIELDS:                              'FIELDS';
 FILE_BLOCK_SIZE:                     'FILE_BLOCK_SIZE';
 FILTER:                              'FILTER';
 FIRST:                               'FIRST';
+FIXED:                               'FIXED';
 FLUSH:                               'FLUSH';
 FOLLOWS:                             'FOLLOWS';
 FOUND:                               'FOUND';
@@ -580,6 +577,7 @@ STATS_SAMPLE_PAGES:                  'STATS_SAMPLE_PAGES';
 STATUS:                              'STATUS';
 STOP:                                'STOP';
 STORAGE:                             'STORAGE';
+STORED:                              'STORED';
 STRING:                              'STRING';
 SUBJECT:                             'SUBJECT';
 SUBPARTITION:                        'SUBPARTITION';
@@ -609,6 +607,7 @@ VALIDATION:                          'VALIDATION';
 VALUE:                               'VALUE';
 VARIABLES:                           'VARIABLES';
 VIEW:                                'VIEW';
+VIRTUAL:                             'VIRTUAL';
 WAIT:                                'WAIT';
 WARNINGS:                            'WARNINGS';
 WITHOUT:                             'WITHOUT';
