@@ -5,6 +5,7 @@
  */
 package io.debezium.relational;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -128,8 +129,7 @@ public class TableSchema implements DataCollectionSchema {
      */
     public Object keyFromColumnData(Object[] columnData) {
         if (logger.isTraceEnabled()) {
-            logger.trace("columnData from current stack: {}", columnData);
-            logger.trace("key from column data stack: ", new Throwable());
+            logger.trace("columnData from current stack: {}", Arrays.toString(columnData));
         }
         return columnData == null ? null : keyGenerator.apply(columnData);
     }

@@ -5,6 +5,7 @@
  */
 package io.debezium.connector.postgresql;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,6 +15,7 @@ import org.apache.kafka.connect.data.Struct;
 
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.relational.TableId;
+import io.debezium.time.Conversions;
 
 public class PostgresOffsetContext implements OffsetContext {
 
@@ -25,11 +27,11 @@ public class PostgresOffsetContext implements OffsetContext {
     private final Map<String, String> partition;
     private boolean lastSnapshotRecord;
 
-    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long txId, Long time, boolean snapshot, boolean lastSnapshotRecord) {
+    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long txId, Instant time, boolean snapshot, boolean lastSnapshotRecord) {
         partition = Collections.singletonMap(SERVER_PARTITION_KEY, serverName);
         sourceInfo = new SourceInfo(serverName, databaseName);
 
-        sourceInfo.update(lsn, time, txId, null);
+        sourceInfo.update(lsn, time, txId, null, sourceInfo.xmin());
         sourceInfoSchema = sourceInfo.schema();
 
         this.lastSnapshotRecord = lastSnapshotRecord;
@@ -121,7 +123,7 @@ public class PostgresOffsetContext implements OffsetContext {
         public OffsetContext load(Map<String, ?> offset) {
             final long lsn = ((Number)offset.get(SourceInfo.LSN_KEY)).longValue();
             final long txId = ((Number)offset.get(SourceInfo.TXID_KEY)).longValue();
-            final long useconds = (Long)offset.get(SourceInfo.TIMESTAMP_KEY);
+            final Instant useconds = Conversions.toInstantFromMicros((Long)offset.get(SourceInfo.TIMESTAMP_KEY));
             final boolean snapshot = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.SNAPSHOT_KEY, Boolean.FALSE);
             final boolean lastSnapshotRecord = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.LAST_SNAPSHOT_RECORD_KEY, Boolean.FALSE);
             return new PostgresOffsetContext(logicalName, databaseName, lsn, txId, useconds, snapshot, lastSnapshotRecord); 

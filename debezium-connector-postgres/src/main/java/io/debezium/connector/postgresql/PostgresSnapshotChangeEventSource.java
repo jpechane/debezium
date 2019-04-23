@@ -54,13 +54,13 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
         }
         else {
             LOGGER.info("No previous offset has been found");
-            if (connectorConfig.getSnapshotMode().includeData()) {
-                LOGGER.info("According to the connector configuration both schema and data will be snapshotted");
+            snapshotData = connectorConfig.getSnapshotter().shouldSnapshot();
+            if (snapshotData) {
+                LOGGER.info("According to the connector configuration data will be snapshotted");
             }
             else {
-                LOGGER.info("According to the connector configuration only schema will be snapshotted");
+                LOGGER.info("According to the connector configuration no snapshot will be executed");
             }
-            snapshotData = connectorConfig.getSnapshotMode().includeData();
         }
 
         return new SnapshottingTask(snapshotSchema, snapshotData);
@@ -119,7 +119,7 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
                 connectorConfig.databaseName(),
                 lsn,
                 txId,
-                getClock().currentTimeInMicros(),
+                getClock().currentTimeAsInstant(),
                 false,
                 false);
     }
