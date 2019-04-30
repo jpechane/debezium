@@ -139,7 +139,7 @@ public class PostgresConnectorTask extends BaseSourceTask {
                     errorHandler,
                     PostgresConnector.class,
                     connectorConfig.getLogicalName(),
-                    new PostgresChangeEventSourceFactory(connectorConfig, jdbcConnection, errorHandler, dispatcher, clock, schema),
+                    new PostgresChangeEventSourceFactory(connectorConfig, jdbcConnection, errorHandler, dispatcher, clock, schema, taskContext),
                     dispatcher
             );
 

@@ -118,6 +118,7 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
                 connectorConfig.getLogicalName(),
                 connectorConfig.databaseName(),
                 lsn,
+                null,
                 txId,
                 getClock().currentTimeAsInstant(),
                 false,

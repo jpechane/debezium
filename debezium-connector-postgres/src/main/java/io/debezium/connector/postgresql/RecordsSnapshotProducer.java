@@ -214,7 +214,7 @@ public class RecordsSnapshotProducer extends RecordsProducer {
             // and mark the start of the snapshot
             sourceInfo.startSnapshot();
             // use the old xmin, as we don't want to update it if in xmin recovery
-            sourceInfo.update(xlogStart, clock().currentTime(), txId, null, sourceInfo.xmin());
+            sourceInfo.update(xlogStart, null, clock().currentTime(), txId, null, sourceInfo.xmin());
 
             logger.info("Step 3: reading and exporting the contents of each table");
             AtomicInteger rowsCounter = new AtomicInteger(0);

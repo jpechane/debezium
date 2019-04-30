@@ -27,11 +27,11 @@ public class PostgresOffsetContext implements OffsetContext {
     private final Map<String, String> partition;
     private boolean lastSnapshotRecord;
 
-    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long txId, Instant time, boolean snapshot, boolean lastSnapshotRecord) {
+    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long lastCompletelyProcessedLsn, Long txId, Instant time, boolean snapshot, boolean lastSnapshotRecord) {
         partition = Collections.singletonMap(SERVER_PARTITION_KEY, serverName);
         sourceInfo = new SourceInfo(serverName, databaseName);
 
-        sourceInfo.update(lsn, time, txId, null, sourceInfo.xmin());
+        sourceInfo.update(lsn, lastCompletelyProcessedLsn, time, txId, null, sourceInfo.xmin());
         sourceInfoSchema = sourceInfo.schema();
 
         this.lastSnapshotRecord = lastSnapshotRecord;
@@ -59,6 +59,9 @@ public class PostgresOffsetContext implements OffsetContext {
         }
         if (sourceInfo.getLsn() != null) {
             result.put(SourceInfo.LSN_KEY, sourceInfo.getLsn());
+        }
+        if (sourceInfo.getLastCompletelyProcessedLsn() != null) {
+            result.put(SourceInfo.LAST_COMPLETELY_PROCESSED_LSN_KEY, sourceInfo.getLastCompletelyProcessedLsn());
         }
         if (isSnapshotRunning() || lastSnapshotRecord) {
             result.put(SourceInfo.SNAPSHOT_KEY, true);
@@ -103,6 +106,10 @@ public class PostgresOffsetContext implements OffsetContext {
         sourceInfo.update(time, tableId);
     }
 
+    public void updateWalPosition(Long lsn, Long lastCompletelyProcessedLsn, Instant commitTime, Long txId, TableId tableId, Long xmin) {
+        sourceInfo.update(lsn, lastCompletelyProcessedLsn, commitTime, txId, tableId, xmin);
+    }
+
     public static class Loader implements OffsetContext.Loader {
 
         private final String logicalName;
@@ -118,15 +125,22 @@ public class PostgresOffsetContext implements OffsetContext {
             return Collections.singletonMap(SERVER_PARTITION_KEY, logicalName);
         }
 
+        private Long readOptionalLong(Map<String, ?> offset, String key) {
+            final Object obj = offset.get(key);
+            return (obj == null) ? null : ((Number) obj).longValue();
+        }
+
         @SuppressWarnings("unchecked")
         @Override
         public OffsetContext load(Map<String, ?> offset) {
-            final long lsn = ((Number)offset.get(SourceInfo.LSN_KEY)).longValue();
-            final long txId = ((Number)offset.get(SourceInfo.TXID_KEY)).longValue();
+            final Long lsn = readOptionalLong(offset, SourceInfo.LSN_KEY);
+            final Long lastCompletelyProcessedLsn = readOptionalLong(offset, SourceInfo.LAST_COMPLETELY_PROCESSED_LSN_KEY);
+            final Long txId = readOptionalLong(offset, SourceInfo.TXID_KEY);
+
             final Instant useconds = Conversions.toInstantFromMicros((Long)offset.get(SourceInfo.TIMESTAMP_KEY));
             final boolean snapshot = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.SNAPSHOT_KEY, Boolean.FALSE);
             final boolean lastSnapshotRecord = (boolean)((Map<String, Object>)offset).getOrDefault(SourceInfo.LAST_SNAPSHOT_RECORD_KEY, Boolean.FALSE);
-            return new PostgresOffsetContext(logicalName, databaseName, lsn, txId, useconds, snapshot, lastSnapshotRecord); 
+            return new PostgresOffsetContext(logicalName, databaseName, lsn, lastCompletelyProcessedLsn, txId, useconds, snapshot, lastSnapshotRecord); 
         }
     }
 
@@ -135,5 +149,9 @@ public class PostgresOffsetContext implements OffsetContext {
         return "PostgresOffsetContext [sourceInfo=" + sourceInfo
                 + ", partition=" + partition
                 + ", lastSnapshotRecord=" + lastSnapshotRecord + "]";
+    }
+
+    public SourceInfo getSI() {
+        return sourceInfo;
     }
 }

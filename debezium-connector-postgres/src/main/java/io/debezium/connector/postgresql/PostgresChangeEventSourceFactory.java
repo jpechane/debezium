@@ -24,15 +24,17 @@ public class PostgresChangeEventSourceFactory implements ChangeEventSourceFactor
     private final EventDispatcher<TableId> dispatcher;
     private final Clock clock;
     private final PostgresSchema schema;
+    private final PostgresTaskContext taskContext;
 
     public PostgresChangeEventSourceFactory(PostgresConnectorConfig configuration, PostgresConnection jdbcConnection,
-            ErrorHandler errorHandler, EventDispatcher<TableId> dispatcher, Clock clock, PostgresSchema schema) {
+            ErrorHandler errorHandler, EventDispatcher<TableId> dispatcher, Clock clock, PostgresSchema schema, PostgresTaskContext taskContext) {
         this.configuration = configuration;
         this.jdbcConnection = jdbcConnection;
         this.errorHandler = errorHandler;
         this.dispatcher = dispatcher;
         this.clock = clock;
         this.schema = schema;
+        this.taskContext = taskContext;
     }
 
     @Override
@@ -49,7 +51,8 @@ public class PostgresChangeEventSourceFactory implements ChangeEventSourceFactor
                 dispatcher,
                 errorHandler,
                 clock,
-                schema
+                schema,
+                taskContext
         );
     }
 }

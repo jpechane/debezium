@@ -86,6 +86,7 @@ public final class SourceInfo extends AbstractSourceInfo {
     public static final String TXID_KEY = "txId";
     public static final String XMIN_KEY = "xmin";
     public static final String LSN_KEY = "lsn";
+    public static final String LAST_COMPLETELY_PROCESSED_LSN_KEY = "lsn_proc";
     public static final String SCHEMA_NAME_KEY = "schema";
     public static final String TABLE_NAME_KEY = "table";
     public static final String SNAPSHOT_KEY = "snapshot";
@@ -101,6 +102,7 @@ public final class SourceInfo extends AbstractSourceInfo {
                                                      .field(TIMESTAMP_KEY, Schema.OPTIONAL_INT64_SCHEMA)
                                                      .field(TXID_KEY, Schema.OPTIONAL_INT64_SCHEMA)
                                                      .field(LSN_KEY, Schema.OPTIONAL_INT64_SCHEMA)
+                                                     .field(LAST_COMPLETELY_PROCESSED_LSN_KEY, Schema.OPTIONAL_INT64_SCHEMA)
                                                      .field(SCHEMA_NAME_KEY, Schema.OPTIONAL_STRING_SCHEMA)
                                                      .field(TABLE_NAME_KEY, Schema.OPTIONAL_STRING_SCHEMA)
                                                      .field(SNAPSHOT_KEY, SchemaBuilder.bool().optional().defaultValue(false).build())
@@ -113,6 +115,7 @@ public final class SourceInfo extends AbstractSourceInfo {
     private final Map<String, String> sourcePartition;
 
     private Long lsn;
+    private Long lastCompletelyProcessedLsn;
     private Long txId;
     private Long xmin;
     private Long useconds;
@@ -168,6 +171,9 @@ public final class SourceInfo extends AbstractSourceInfo {
         if (lsn != null) {
             result.put(LSN_KEY, lsn);
         }
+        if (lastCompletelyProcessedLsn != null) {
+            result.put(LAST_COMPLETELY_PROCESSED_LSN_KEY, lastCompletelyProcessedLsn);
+        }
         if (xmin != null) {
             result.put(XMIN_KEY, xmin);
         }
@@ -187,6 +193,7 @@ public final class SourceInfo extends AbstractSourceInfo {
      *
      * @param lsn the position in the server WAL for a particular event; may be null indicating that this information is not
      * available
+     * @param lastCompletelyProcessedLsn the position in the server WAL from which it can be flushed
      * @param commitTime the commit time (in microseconds since epoch) of the transaction that generated the event;
      * may be null indicating that this information is not available
      * @param txId the ID of the transaction that generated the transaction; may be null if this information is not available
@@ -194,8 +201,9 @@ public final class SourceInfo extends AbstractSourceInfo {
      * @param xmin the xmin of the slot, may be null
      * @return this instance
      */
-    protected SourceInfo update(Long lsn, Instant commitTime, Long txId, TableId tableId, Long xmin) {
+    protected SourceInfo update(Long lsn, Long lastCompletelyProcessedLsn, Instant commitTime, Long txId, TableId tableId, Long xmin) {
         this.lsn = lsn;
+        this.lastCompletelyProcessedLsn = lastCompletelyProcessedLsn;
         this.useconds = Conversions.toEpochMicros(commitTime);
         this.txId = txId;
         this.xmin = xmin;
@@ -309,6 +317,9 @@ public final class SourceInfo extends AbstractSourceInfo {
         if (lsn != null) {
             sb.append(", lsn=").append(ReplicationConnection.format(lsn));
         }
+        if (lastCompletelyProcessedLsn != null) {
+            sb.append(", lastCompletelyProcessedLsn=").append(ReplicationConnection.format(lastCompletelyProcessedLsn));
+        }
         if (txId != null) {
             sb.append(", txId=").append(txId);
         }
@@ -347,5 +358,9 @@ public final class SourceInfo extends AbstractSourceInfo {
 
     Boolean isLastSnapshotRecord() {
         return lastSnapshotRecord;
+    }
+
+    Long getLastCompletelyProcessedLsn() {
+        return lastCompletelyProcessedLsn;
     }
 }
