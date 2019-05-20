@@ -6,6 +6,7 @@
 package io.debezium.connector.postgresql;
 
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.ChangeEventSourceFactory;
@@ -25,8 +26,9 @@ public class PostgresChangeEventSourceFactory implements ChangeEventSourceFactor
     private final Clock clock;
     private final PostgresSchema schema;
     private final PostgresTaskContext taskContext;
+    private final Snapshotter snapshotter;
 
-    public PostgresChangeEventSourceFactory(PostgresConnectorConfig configuration, PostgresConnection jdbcConnection,
+    public PostgresChangeEventSourceFactory(PostgresConnectorConfig configuration, Snapshotter snapshotter, PostgresConnection jdbcConnection,
             ErrorHandler errorHandler, EventDispatcher<TableId> dispatcher, Clock clock, PostgresSchema schema, PostgresTaskContext taskContext) {
         this.configuration = configuration;
         this.jdbcConnection = jdbcConnection;
@@ -35,17 +37,28 @@ public class PostgresChangeEventSourceFactory implements ChangeEventSourceFactor
         this.clock = clock;
         this.schema = schema;
         this.taskContext = taskContext;
+        this.snapshotter = snapshotter;
     }
 
     @Override
     public SnapshotChangeEventSource getSnapshotChangeEventSource(OffsetContext offsetContext, SnapshotProgressListener snapshotProgressListener) {
-        return new PostgresSnapshotChangeEventSource(configuration, (PostgresOffsetContext) offsetContext, jdbcConnection, schema, dispatcher, clock, snapshotProgressListener);
+        return new PostgresSnapshotChangeEventSource(
+                configuration,
+                snapshotter,
+                (PostgresOffsetContext) offsetContext,
+                jdbcConnection,
+                schema,
+                dispatcher,
+                clock,
+                snapshotProgressListener
+            );
     }
 
     @Override
     public StreamingChangeEventSource getStreamingChangeEventSource(OffsetContext offsetContext) {
         return new PostgresStreamingChangeEventSource(
                 configuration,
+                snapshotter,
                 (PostgresOffsetContext) offsetContext,
                 jdbcConnection,
                 dispatcher,

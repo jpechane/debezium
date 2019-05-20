@@ -5,7 +5,6 @@
  */
 package io.debezium.connector.postgresql;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.connect.data.Schema;
@@ -30,6 +28,7 @@ import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.connection.ReplicationMessage;
 import io.debezium.connector.postgresql.connection.ReplicationStream;
+import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
 import io.debezium.function.BlockingConsumer;
 import io.debezium.pipeline.ErrorHandler;
@@ -66,18 +65,21 @@ public class PostgresStreamingChangeEventSource implements StreamingChangeEventS
     private final AtomicReference<ReplicationStream> replicationStream = new AtomicReference<>();
     private final SourceInfo sourceInfo;
     private Long lastCompletelyProcessedLsn;
+    private final Snapshotter snapshotter;
 
-    public PostgresStreamingChangeEventSource(PostgresConnectorConfig connectorConfig, PostgresOffsetContext offsetContext, PostgresConnection connection, EventDispatcher<TableId> dispatcher, ErrorHandler errorHandler, Clock clock, PostgresSchema schema, PostgresTaskContext taskContext) {
+    public PostgresStreamingChangeEventSource(PostgresConnectorConfig connectorConfig, Snapshotter snapshotter, PostgresOffsetContext offsetContext, PostgresConnection connection, EventDispatcher<TableId> dispatcher, ErrorHandler errorHandler, Clock clock, PostgresSchema schema, PostgresTaskContext taskContext) {
         this.connectorConfig = connectorConfig;
         this.connection = connection;
         this.dispatcher = dispatcher;
         this.errorHandler = errorHandler;
         this.clock = clock;
         this.schema = schema;
-        this.offsetContext = offsetContext;
+        this.offsetContext = (offsetContext != null) ? offsetContext :
+            PostgresOffsetContext.initialContext(connectorConfig, connection, clock);
         this.pollInterval = connectorConfig.getPollInterval();
         this.taskContext = taskContext;
-        this.sourceInfo = offsetContext.getSI();
+        this.sourceInfo = this.offsetContext.getSI();
+        this.snapshotter = snapshotter;
 
         try {
             this.replicationConnection = taskContext.createReplicationConnection();
@@ -88,7 +90,7 @@ public class PostgresStreamingChangeEventSource implements StreamingChangeEventS
 
     @Override
     public void execute(ChangeEventSourceContext context) throws InterruptedException {
-        if (!connectorConfig.getSnapshotter().shouldStream()) {
+        if (!snapshotter.shouldStream()) {
             LOGGER.info("Streaming is not enabled in currect configuration");
             return;
         }
@@ -115,7 +117,6 @@ public class PostgresStreamingChangeEventSource implements StreamingChangeEventS
             while (context.isRunning()) {
                 stream.readPending(message -> {
                     final Long lsn = stream.lastReceivedLsn();
-
                     if (message == null) {
                         LOGGER.trace("Received empty message");
                         lastCompletelyProcessedLsn = lsn;
@@ -147,29 +148,17 @@ public class PostgresStreamingChangeEventSource implements StreamingChangeEventS
         catch (Throwable e) {
             errorHandler.setProducerThrowable(e);
         }
-    }
-
-    private void streamChanges(BlockingConsumer<ChangeEvent> consumer, Consumer<Throwable> failureConsumer) {
-        // run while we haven't been requested to stop
-        final ReplicationStream stream = this.replicationStream.get();
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                // this will block until a message is available
-                stream.readPending(x -> process(x, stream.lastReceivedLsn(), consumer));
-            } catch (SQLException e) {
-                Throwable cause = e.getCause();
-                if (cause != null && (cause instanceof IOException)) {
-                    //TODO author=Horia Chiorean date=08/11/2016 description=this is because we can't safely close the stream atm
-                    LOGGER.warn("Closing replication stream due to db connection IO exception...");
-                } else {
-                    LOGGER.error("unexpected exception while streaming logical changes", e);
+        finally {
+            if (replicationConnection != null) {
+                LOGGER.debug("stopping streaming...");
+                //TODO author=Horia Chiorean date=08/11/2016 description=Ideally we'd close the stream, but it's not reliable atm (see javadoc)
+                //replicationStream.close();
+                // close the connection - this should also disconnect the current stream even if it's blocking
+                try {
+                    replicationConnection.close();
                 }
-                failureConsumer.accept(e);
-                throw new ConnectException(e);
-            } catch (Throwable e) {
-                LOGGER.error("unexpected exception while streaming logical changes", e);
-                failureConsumer.accept(e);
-                throw new ConnectException(e);
+                catch (Exception e) {
+                }
             }
         }
     }

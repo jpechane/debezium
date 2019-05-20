@@ -285,10 +285,14 @@ public abstract class AbstractConnectorTest implements Testing {
                                        logger.error("Stopping connector after record as requested");
                                        throw new ConnectException("Stopping connector after record as requested");
                                    }
-                                   try {
-                                       consumedLines.put(record);
-                                   } catch (InterruptedException e) {
-                                       Thread.interrupted();
+                                   // Test stopped the connector, remaining records are ignored
+                                   if (!engine.isRunning() || Thread.currentThread().isInterrupted()) {
+                                       return;
+                                   }
+                                   while (!consumedLines.offer(record)) {
+                                       if (!engine.isRunning() || Thread.currentThread().isInterrupted()) {
+                                           return;
+                                       }
                                    }
                                })
                                .using(this.getClass().getClassLoader())

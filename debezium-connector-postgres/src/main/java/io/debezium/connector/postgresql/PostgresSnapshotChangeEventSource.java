@@ -5,20 +5,29 @@
  */
 package io.debezium.connector.postgresql;
 
+import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.postgresql.util.PGmoney;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
+import io.debezium.connector.postgresql.spi.Snapshotter;
+import io.debezium.data.SpecialValueDecimal;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.SnapshotChangeRecordEmitter;
+import io.debezium.relational.Column;
 import io.debezium.relational.HistorizedRelationalSnapshotChangeEventSource;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -33,12 +42,14 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
     private final PostgresConnectorConfig connectorConfig;
     private final PostgresConnection jdbcConnection;
     private final PostgresSchema schema;
+    private final Snapshotter snapshotter;
 
-    public PostgresSnapshotChangeEventSource(PostgresConnectorConfig connectorConfig, PostgresOffsetContext previousOffset, PostgresConnection jdbcConnection, PostgresSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
+    public PostgresSnapshotChangeEventSource(PostgresConnectorConfig connectorConfig, Snapshotter snapshotter, PostgresOffsetContext previousOffset, PostgresConnection jdbcConnection, PostgresSchema schema, EventDispatcher<TableId> dispatcher, Clock clock, SnapshotProgressListener snapshotProgressListener) {
         super(connectorConfig, previousOffset, jdbcConnection, dispatcher, clock, snapshotProgressListener);
         this.connectorConfig = connectorConfig;
         this.jdbcConnection = jdbcConnection;
         this.schema = schema;
+        this.snapshotter = snapshotter;
     }
 
     @Override
@@ -46,21 +57,13 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
         boolean snapshotSchema = true;
         boolean snapshotData = true;
 
-        // found a previous offset and the earlier snapshot has completed
-        if (previousOffset != null && !previousOffset.isSnapshotRunning()) {
-            LOGGER.info("A previous offset indicating a completed snapshot has been found. Neither schema nor data will be snapshotted.");
-            snapshotSchema = false;
-            snapshotData = false;
+        snapshotData = snapshotter.shouldSnapshot();
+        if (snapshotData) {
+            LOGGER.info("According to the connector configuration data will be snapshotted");
         }
         else {
-            LOGGER.info("No previous offset has been found");
-            snapshotData = connectorConfig.getSnapshotter().shouldSnapshot();
-            if (snapshotData) {
-                LOGGER.info("According to the connector configuration data will be snapshotted");
-            }
-            else {
-                LOGGER.info("According to the connector configuration no snapshot will be executed");
-            }
+            LOGGER.info("According to the connector configuration no snapshot will be executed");
+            snapshotSchema = false;
         }
 
         return new SnapshottingTask(snapshotSchema, snapshotData);
@@ -114,15 +117,7 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
         final long lsn = jdbcConnection.currentXLogLocation();
         final long txId = jdbcConnection.currentTransactionId().longValue();
         LOGGER.info("Read xlogStart at '{}' from transaction '{}'", ReplicationConnection.format(lsn), txId);
-        ctx.offset = new PostgresOffsetContext(
-                connectorConfig.getLogicalName(),
-                connectorConfig.databaseName(),
-                lsn,
-                null,
-                txId,
-                getClock().currentTimeAsInstant(),
-                false,
-                false);
+        ctx.offset = PostgresOffsetContext.initialContext(connectorConfig, jdbcConnection, getClock());
     }
 
     @Override
@@ -163,14 +158,64 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
     }
 
     @Override
-    protected String getSnapshotSelect(SnapshotContext snapshotContext, TableId tableId) {
-        return String.format("SELECT * FROM %s", tableId.toDoubleQuotedString());
+    protected Optional<String> getSnapshotSelect(SnapshotContext snapshotContext, TableId tableId) {
+        return snapshotter.buildSnapshotQuery(tableId);
     }
 
     @Override
     protected ChangeRecordEmitter getChangeRecordEmitter(SnapshotContext snapshotContext, Object[] row) {
         ((PostgresOffsetContext) snapshotContext.offset).updateSnapshotPosition(getClock().currentTimeInMicros(), snapshotContext.snapshottedTable);
         return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, getClock());
+    }
+
+    @Override
+    protected Object getColumnValue(ResultSet rs, int columnIndex, Column column) throws SQLException {
+        try {
+            final ResultSetMetaData metaData = rs.getMetaData();
+            final String columnTypeName = metaData.getColumnTypeName(columnIndex);
+            final PostgresType type = schema.getTypeRegistry().get(columnTypeName);
+
+            LOGGER.trace("Type of incoming data is: {}", type.getOid());
+            LOGGER.trace("ColumnTypeName is: {}", columnTypeName);
+            LOGGER.trace("Type is: {}", type);
+
+            if (type.isArrayType()) {
+                Array array = rs.getArray(columnIndex);
+
+                if (array == null) {
+                    return null;
+                }
+
+                return Arrays.asList((Object[]) array.getArray());
+            }
+
+            switch (type.getOid()) {
+                case PgOid.MONEY:
+                    //TODO author=Horia Chiorean date=14/11/2016 description=workaround for https://github.com/pgjdbc/pgjdbc/issues/100
+                    return new PGmoney(rs.getString(columnIndex)).val;
+                case PgOid.BIT:
+                    return rs.getString(columnIndex);
+                case PgOid.NUMERIC:
+                    final String s = rs.getString(columnIndex);
+                    if (s == null) {
+                        return s;
+                    }
+
+                    Optional<SpecialValueDecimal> value = PostgresValueConverter.toSpecialValue(s);
+                    return value.isPresent() ? value.get() : new SpecialValueDecimal(rs.getBigDecimal(columnIndex));
+
+                default:
+                    Object x = rs.getObject(columnIndex);
+                    if(x != null) {
+                        LOGGER.trace("rs getobject returns class: {}; rs getObject value is: {}", x.getClass(), x);
+                    }
+                    return x;
+            }
+        }
+        catch (SQLException e) {
+            // not a known type
+            return super.getColumnValue(rs, columnIndex, column);
+        }
     }
 
     /**
@@ -182,5 +227,4 @@ public class PostgresSnapshotChangeEventSource extends HistorizedRelationalSnaps
             super(null);
         }
     }
-
 }

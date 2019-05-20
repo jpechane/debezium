@@ -67,11 +67,21 @@ public class PostgresChangeRecordEmitter extends RelationalChangeRecordEmitter {
 
     @Override
     protected Object[] getOldColumnValues() {
-        switch (getOperation()) {
-            case CREATE:
-                return null;
-            default:
-                return null;
+        final TableId tableId = PostgresSchema.parse(message.getTable());
+        Objects.requireNonNull(tableId);
+
+        try {
+            switch (getOperation()) {
+                case CREATE:
+                    return null;
+                case UPDATE:
+                    return columnValues(message.getOldTupleList(), tableId, true, message.hasTypeMetadata());
+                default:
+                    return columnValues(message.getOldTupleList(), tableId, true, message.hasTypeMetadata());
+            }
+        }
+        catch (SQLException e) {
+            throw new ConnectException(e);
         }
     }
 
@@ -85,7 +95,7 @@ public class PostgresChangeRecordEmitter extends RelationalChangeRecordEmitter {
                 case CREATE:
                     return columnValues(message.getNewTupleList(), tableId, true, message.hasTypeMetadata());
                 case UPDATE:
-                    return null;
+                    return columnValues(message.getNewTupleList(), tableId, true, message.hasTypeMetadata());
                 default:
                     return null;
             }

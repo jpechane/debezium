@@ -27,6 +27,10 @@ import io.debezium.relational.Tables.TableFilter;
  */
 public abstract class RelationalDatabaseConnectorConfig extends CommonConnectorConfig {
 
+    private static final String TABLE_BLACKLIST_NAME = "table.blacklist";
+
+    private static final String TABLE_WHITELIST_NAME = "table.whitelist";
+
     /**
      * The set of predefined DecimalHandlingMode options or aliases.
      */
@@ -113,7 +117,7 @@ public abstract class RelationalDatabaseConnectorConfig extends CommonConnectorC
      * {@code <databaseName>.<schemaName>.<tableName>}. May not be used with {@link #TABLE_BLACKLIST}, and superseded by database
      * inclusions/exclusions.
      */
-    public static final Field TABLE_WHITELIST = Field.create("table.whitelist")
+    public static final Field TABLE_WHITELIST = Field.create(TABLE_WHITELIST_NAME)
                                                      .withDisplayName("Included tables")
                                                      .withType(Type.LIST)
                                                      .withWidth(Width.LONG)
@@ -126,7 +130,7 @@ public abstract class RelationalDatabaseConnectorConfig extends CommonConnectorC
      * monitoring. Fully-qualified names for tables are of the form {@code <databaseName>.<tableName>} or
      * {@code <databaseName>.<schemaName>.<tableName>}. May not be used with {@link #TABLE_WHITELIST}.
      */
-    public static final Field TABLE_BLACKLIST = Field.create("table.blacklist")
+    public static final Field TABLE_BLACKLIST = Field.create(TABLE_BLACKLIST_NAME)
                                                      .withDisplayName("Excluded tables")
                                                      .withType(Type.STRING)
                                                      .withWidth(Width.LONG)
@@ -166,6 +170,31 @@ public abstract class RelationalDatabaseConnectorConfig extends CommonConnectorC
                     + "'string' uses string to represent values; "
                     + "'double' represents values using Java's 'double', which may not offer the precision but will be far easier to use in consumers.");
 
+    /**
+     * A comma-separated list of regular expressions that match schema names to be monitored.
+     * May not be used with {@link #SCHEMA_BLACKLIST}.
+     */
+    public static final Field SCHEMA_WHITELIST = Field.create("schema.whitelist")
+                                                      .withDisplayName("Schemas")
+                                                      .withType(Type.LIST)
+                                                      .withWidth(Width.LONG)
+                                                      .withImportance(Importance.HIGH)
+                                                      .withDependents(TABLE_WHITELIST_NAME)
+                                                      .withDescription("The schemas for which events should be captured");
+
+    /**
+     * A comma-separated list of regular expressions that match schema names to be excluded from monitoring.
+     * May not be used with {@link #SCHEMA_WHITELIST}.
+     */
+    public static final Field SCHEMA_BLACKLIST = Field.create("schema.blacklist")
+                                                      .withDisplayName("Exclude Schemas")
+                                                      .withType(Type.STRING)
+                                                      .withWidth(Width.LONG)
+                                                      .withImportance(Importance.MEDIUM)
+                                                      .withValidation(RelationalDatabaseConnectorConfig::validateSchemaBlacklist)
+                                                      .withInvisibleRecommender()
+                                                      .withDescription("");
+
     private final RelationalTableFilters tableFilters;
 
     protected RelationalDatabaseConnectorConfig(Configuration config, String logicalName, TableFilter systemTablesFilter, TableIdToStringMapper tableIdMapper) {
@@ -203,6 +232,16 @@ public abstract class RelationalDatabaseConnectorConfig extends CommonConnectorC
             return 1;
         }
 
+        return 0;
+    }
+
+    private static int validateSchemaBlacklist(Configuration config, Field field, Field.ValidationOutput problems) {
+        String whitelist = config.getString(SCHEMA_WHITELIST);
+        String blacklist = config.getString(SCHEMA_BLACKLIST);
+        if (whitelist != null && blacklist != null) {
+            problems.accept(SCHEMA_BLACKLIST, blacklist, "Schema whitelist is already specified");
+            return 1;
+        }
         return 0;
     }
 }

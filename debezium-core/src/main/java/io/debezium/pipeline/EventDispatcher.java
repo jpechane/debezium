@@ -53,6 +53,7 @@ public class EventDispatcher<T extends DataCollectionId> {
     private final ChangeEventCreator changeEventCreator;
     private final Heartbeat heartbeat;
     private DataChangeEventListener eventListener = DataChangeEventListener.NO_OP;
+    private final boolean emitTombstonesOnDelete;;
 
     /**
      * Change event receiver for events dispatched from a streaming change event source.
@@ -71,6 +72,7 @@ public class EventDispatcher<T extends DataCollectionId> {
         this.filter = filter;
         this.changeEventCreator = changeEventCreator;
         this.streamingReceiver = new StreamingChangeRecordReceiver();
+        this.emitTombstonesOnDelete = connectorConfig.isEmitTombstoneOnDelete();
 
         heartbeat = Heartbeat.create(connectorConfig.getConfig(), topicSelector.getHeartbeatTopic(),
                 connectorConfig.getLogicalName());
@@ -120,6 +122,7 @@ public class EventDispatcher<T extends DataCollectionId> {
             // TODO handle as per inconsistent schema info option
             if(dataCollectionSchema == null) {
                 throw new IllegalArgumentException("No metadata registered for captured table " + dataCollectionId);
+                //return;
             }
 
             changeRecordEmitter.emitChangeRecords(dataCollectionSchema, new Receiver() {
@@ -186,9 +189,6 @@ public class EventDispatcher<T extends DataCollectionId> {
                     topicName, null, keySchema, key, dataCollectionSchema.getEnvelopeSchema().schema(), value);
 
             queue.enqueue(changeEventCreator.createDataChangeEvent(record));
-
-            // TODO handle option
-            boolean emitTombstonesOnDelete = true;
 
             if (emitTombstonesOnDelete && operation == Operation.DELETE) {
                 SourceRecord tombStone = record.newRecord(

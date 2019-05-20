@@ -53,6 +53,7 @@ import io.debezium.embedded.AbstractConnectorTest;
 import io.debezium.embedded.EmbeddedEngine;
 import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.util.Strings;
+import io.debezium.util.Testing;
 
 /**
  * Integration test for {@link PostgresConnector} using an {@link io.debezium.embedded.EmbeddedEngine}
@@ -209,6 +210,7 @@ public class PostgresConnectorIT extends AbstractConnectorTest {
         start(PostgresConnector.class, configBuilder.with(PostgresConnectorConfig.DROP_SLOT_ON_STOP, Boolean.TRUE).build());
         assertConnectorIsRunning();
 
+        Testing.Print.enable();
         assertRecordsAfterInsert(2, 3, 3);
     }
 
@@ -428,14 +430,14 @@ public class PostgresConnectorIT extends AbstractConnectorTest {
         start(PostgresConnector.class, configBuilder.build());
         assertConnectorIsRunning();
 
-        SourceRecords actualRecords = consumeRecordsByTopic(7);
+        SourceRecords actualRecords = consumeRecordsByTopic(8);
         assertKey(actualRecords.allRecordsInOrder().get(0), "pk", 1);
         assertKey(actualRecords.allRecordsInOrder().get(1), "pk", 2);
 
         // JdbcConnection#connection() is called multiple times during connector start-up,
         // so the given statements will be executed multiple times, resulting in multiple
         // records; here we're interested just in the first insert for s2.a
-        assertValueField(actualRecords.allRecordsInOrder().get(6), "after/bb", "hello; world");
+        assertValueField(actualRecords.allRecordsInOrder().get(7), "after/bb", "hello; world");
     }
 
     @Test
@@ -447,7 +449,7 @@ public class PostgresConnectorIT extends AbstractConnectorTest {
                                          .build();
         start(PostgresConnector.class, config);
         assertConnectorIsRunning();
-        waitForAvailableRecords(100, TimeUnit.MILLISECONDS);
+        waitForAvailableRecords(1000, TimeUnit.MILLISECONDS);
         // there shouldn't be any snapshot records
         assertNoRecordsToConsume();
 
@@ -485,6 +487,7 @@ public class PostgresConnectorIT extends AbstractConnectorTest {
         start(PostgresConnector.class, configBuilder.build());
         assertConnectorIsRunning();
 
+        Testing.Print.enable();
         //check the records from the snapshot
         assertRecordsFromSnapshot(2, 1, 1);
         // insert and verify 2 new records

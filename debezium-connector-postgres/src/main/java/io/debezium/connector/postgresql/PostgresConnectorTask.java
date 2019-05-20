@@ -139,10 +139,17 @@ public class PostgresConnectorTask extends BaseSourceTask {
                     errorHandler,
                     PostgresConnector.class,
                     connectorConfig.getLogicalName(),
-                    new PostgresChangeEventSourceFactory(connectorConfig, jdbcConnection, errorHandler, dispatcher, clock, schema, taskContext),
+                    new PostgresChangeEventSourceFactory(connectorConfig, snapshotter, jdbcConnection, errorHandler, dispatcher, clock, schema, taskContext),
                     dispatcher
             );
 
+            try {
+                taskContext.createReplicationConnection();
+            }
+            catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
             coordinator.start(taskContext, this.queue, new PostgresEventMetadataProvider());
         }
         finally {

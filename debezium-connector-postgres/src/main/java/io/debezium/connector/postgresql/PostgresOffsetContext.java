@@ -5,6 +5,7 @@
  */
 package io.debezium.connector.postgresql;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,12 +13,19 @@ import java.util.Map;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.relational.TableId;
 import io.debezium.time.Conversions;
+import io.debezium.util.Clock;
 
 public class PostgresOffsetContext implements OffsetContext {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PostgresSnapshotChangeEventSource.class);
 
     private static final String SERVER_PARTITION_KEY = "server";
     public static final String LAST_SNAPSHOT_RECORD_KEY = "last_snapshot_record";
@@ -27,7 +35,7 @@ public class PostgresOffsetContext implements OffsetContext {
     private final Map<String, String> partition;
     private boolean lastSnapshotRecord;
 
-    public PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long lastCompletelyProcessedLsn, Long txId, Instant time, boolean snapshot, boolean lastSnapshotRecord) {
+    private PostgresOffsetContext(String serverName, String databaseName, Long lsn, Long lastCompletelyProcessedLsn, Long txId, Instant time, boolean snapshot, boolean lastSnapshotRecord) {
         partition = Collections.singletonMap(SERVER_PARTITION_KEY, serverName);
         sourceInfo = new SourceInfo(serverName, databaseName);
 
@@ -153,5 +161,26 @@ public class PostgresOffsetContext implements OffsetContext {
 
     public SourceInfo getSI() {
         return sourceInfo;
+    }
+
+    public static PostgresOffsetContext initialContext(PostgresConnectorConfig connectorConfig, PostgresConnection jdbcConnection, Clock clock) {
+        try {
+            LOGGER.info("Creating initial offset context");
+            final long lsn = jdbcConnection.currentXLogLocation();
+            final long txId = jdbcConnection.currentTransactionId().longValue();
+            LOGGER.info("Read xlogStart at '{}' from transaction '{}'", ReplicationConnection.format(lsn), txId);
+            return new PostgresOffsetContext(
+                    connectorConfig.getLogicalName(),
+                    connectorConfig.databaseName(),
+                    lsn,
+                    null,
+                    txId,
+                    clock.currentTimeAsInstant(),
+                    false,
+                    false);
+        }
+        catch (SQLException e) {
+            throw new ConnectException("Database processing error", e);
+        }
     }
 }

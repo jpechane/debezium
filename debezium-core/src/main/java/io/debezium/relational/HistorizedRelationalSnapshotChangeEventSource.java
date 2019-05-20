@@ -319,13 +319,18 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
             Table table) throws InterruptedException {
 
         long exportStart = clock.currentTimeInMillis();
-        LOGGER.info("\t Exporting data from table '{}'", table.id());
 
-        final String selectStatement = getSnapshotSelect(snapshotContext, table.id());
-        LOGGER.info("\t For table '{}' using select statement: '{}'", table.id(), selectStatement);
+        final Optional<String> selectStatement = getSnapshotSelect(snapshotContext, table.id());
+        if (!selectStatement.isPresent()) {
+            LOGGER.info("\t Data will not be exported from table '{}'", table.id());
+            return;
+        }
+
+        LOGGER.info("\t Exporting data from table '{}'", table.id());
+        LOGGER.info("\t For table '{}' using select statement: '{}'", table.id(), selectStatement.get());
 
         try (Statement statement = readTableStatement();
-                ResultSet rs = statement.executeQuery(selectStatement)) {
+                ResultSet rs = statement.executeQuery(selectStatement.get())) {
 
             Column[] columns = getColumnsForResultSet(table, rs);
             final int numColumns = table.columns().size();
@@ -379,7 +384,7 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
     // TODO Should it be Statement or similar?
     // TODO Handle override option generically; a problem will be how to handle the dynamic part (Oracle's "... as of
     // scn xyz")
-    protected abstract String getSnapshotSelect(SnapshotContext snapshotContext, TableId tableId);
+    protected abstract Optional<String> getSnapshotSelect(SnapshotContext snapshotContext, TableId tableId);
 
     private Column[] getColumnsForResultSet(Table table, ResultSet rs) throws SQLException {
         ResultSetMetaData metaData = rs.getMetaData();
@@ -392,7 +397,8 @@ public abstract class HistorizedRelationalSnapshotChangeEventSource implements S
         return columns;
     }
 
-    private Object getColumnValue(ResultSet rs, int columnIndex, Column column) throws SQLException {
+    protected Object getColumnValue(ResultSet rs, int columnIndex, Column column) throws SQLException {
+        System.out.println(column);
         return rs.getObject(columnIndex);
     }
 

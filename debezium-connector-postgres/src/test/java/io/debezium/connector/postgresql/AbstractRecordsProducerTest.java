@@ -58,7 +58,7 @@ import io.debezium.data.Xml;
 import io.debezium.data.geometry.Geography;
 import io.debezium.data.geometry.Geometry;
 import io.debezium.data.geometry.Point;
-import io.debezium.function.BlockingConsumer;
+import io.debezium.embedded.AbstractConnectorTest;
 import io.debezium.relational.TableId;
 import io.debezium.time.Date;
 import io.debezium.time.MicroDuration;
@@ -68,14 +68,16 @@ import io.debezium.time.Time;
 import io.debezium.time.Timestamp;
 import io.debezium.time.ZonedTime;
 import io.debezium.time.ZonedTimestamp;
-import io.debezium.util.VariableLatch;
+import io.debezium.util.Clock;
+import io.debezium.util.ElapsedTimeStrategy;
+import io.debezium.util.Testing;
 
 /**
  * Base class for the integration tests for the different {@link RecordsProducer} instances
  *
  * @author Horia Chiorean (hchiorea@redhat.com)
  */
-public abstract class AbstractRecordsProducerTest {
+public abstract class AbstractRecordsProducerTest extends AbstractConnectorTest {
 
     protected static final Pattern INSERT_TABLE_MATCHING_PATTERN = Pattern.compile("insert into (.*)\\(.*\\) VALUES .*", Pattern.CASE_INSENSITIVE);
 
@@ -896,14 +898,14 @@ public abstract class AbstractRecordsProducerTest {
          return new TestConsumer(expectedRecordsCount, topicPrefixes);
     }
 
-    protected static class TestConsumer implements BlockingConsumer<ChangeEvent> {
+    protected class TestConsumer {
         private final ConcurrentLinkedQueue<SourceRecord> records;
-        private final VariableLatch latch;
+        private int expectedRecordsCount;
         private final List<String> topicPrefixes;
         private boolean ignoreExtraRecords = false;
 
         protected TestConsumer(int expectedRecordsCount, String... topicPrefixes) {
-            this.latch = new VariableLatch(expectedRecordsCount);
+            this.expectedRecordsCount = expectedRecordsCount;
             this.records = new ConcurrentLinkedQueue<>();
             this.topicPrefixes = Arrays.stream(topicPrefixes)
                     .map(p -> TestHelper.TEST_SERVER + "." + p)
@@ -914,22 +916,31 @@ public abstract class AbstractRecordsProducerTest {
             this.ignoreExtraRecords = ignoreExtraRecords;
         }
 
-        @Override
-        public void accept(ChangeEvent event) {
-            final SourceRecord record = event.getRecord();
+        public void accept(SourceRecord record) {
             if ( ignoreTopic(record.topic()) ) {
                 return;
             }
 
-            if (latch.getCount() == 0) {
-                if (ignoreExtraRecords) {
-                    records.add(record);
-                } else {
+            if (records.size() >= expectedRecordsCount) {
+                addRecord(record);
+                if (!ignoreExtraRecords) {
                     fail("received more events than expected");
                 }
             } else {
-                records.add(record);
-                latch.countDown();
+                addRecord(record);
+            }
+        }
+
+        private void addRecord(SourceRecord record) {
+            records.add(record);
+            if (Testing.Debug.isEnabled()) {
+                Testing.debug("Consumed record " + records.size() + " / " + expectedRecordsCount + " ("
+                        + (expectedRecordsCount - records.size()) + " more)");
+                debug(record);
+            } else if (Testing.Print.isEnabled()) {
+                Testing.print("Consumed record " + records.size() + " / " + expectedRecordsCount + " ("
+                        + (expectedRecordsCount - records.size()) + " more)");
+                print(record);
             }
         }
 
@@ -948,8 +959,7 @@ public abstract class AbstractRecordsProducerTest {
         }
 
         protected void expects(int expectedRecordsCount) {
-            assert latch.getCount() == 0;
-            this.latch.countUp(expectedRecordsCount);
+            this.expectedRecordsCount = expectedRecordsCount;
         }
 
         protected SourceRecord remove() {
@@ -969,8 +979,19 @@ public abstract class AbstractRecordsProducerTest {
         }
 
         protected void await(long timeout, TimeUnit unit) throws InterruptedException {
-            if (!latch.await(timeout, unit)) {
-                fail("Consumer is still expecting " + latch.getCount() + " records, as it received only " + records.size());
+            final ElapsedTimeStrategy timer = ElapsedTimeStrategy.constant(Clock.SYSTEM, unit.toMillis(timeout));
+            timer.hasElapsed();
+            while (!timer.hasElapsed()) {
+                final SourceRecord r = consumeRecord();
+                if (r != null) {
+                    accept(r);
+                    if (records.size() == expectedRecordsCount) {
+                        break;
+                    }
+                }
+            }
+            if (records.size() != expectedRecordsCount) {
+                fail("Consumer is still expecting " + (expectedRecordsCount -records.size()) + " records, as it received only " + records.size());
             }
         }
     }

@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.fest.assertions.Assertions;
 import org.junit.After;
@@ -29,20 +28,14 @@ import org.junit.Test;
 import org.junit.rules.TestRule;
 
 import io.debezium.connector.base.ChangeEventQueue;
-import io.debezium.connector.postgresql.AbstractRecordsProducerTest.SchemaAndValueField;
-import io.debezium.connector.postgresql.AbstractRecordsProducerTest.TestConsumer;
 import io.debezium.connector.postgresql.junit.SkipTestDependingOnDatabaseVersionRule;
 import io.debezium.data.Envelope;
 import io.debezium.data.VerifyRecord;
 import io.debezium.doc.FixFor;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.DataChangeEvent;
-import io.debezium.pipeline.EventDispatcher;
-import io.debezium.pipeline.source.spi.ChangeEventSource.ChangeEventSourceContext;
-import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.relational.TableId;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.Clock;
 import io.debezium.util.LoggingContext;
 
 /**
@@ -106,60 +99,60 @@ public class SnapshotChangeEventSourceIT extends AbstractRecordsProducerTest {
         );
 
         final PostgresSchema schema = TestHelper.getSchema(config);
-        eventSource = new PostgresSnapshotChangeEventSource(
-                config,
-                null, //new PostgresOffsetContext("xx", "yy", null, null, null, false, false),
-                TestHelper.create(),
-                schema,
-                new EventDispatcher<TableId>(config, selector, schema, eventQueue, config.getTableFilters().dataCollectionFilter(), DataChangeEvent::new),
-                Clock.SYSTEM,
-                new SnapshotProgressListener() {
-                    
-                    @Override
-                    public void tableSnapshotCompleted(TableId tableId, long numRows) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotStarted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotCompleted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotAborted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void rowsScanned(TableId tableId, long numRows) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void monitoredTablesDetermined(Iterable<TableId> tableIds) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                }
-        );
-        eventSource.execute(new ChangeEventSourceContext() {
-            
-            @Override
-            public boolean isRunning() {
-                // TODO Auto-generated method stub
-                return true;
-            }
-        });
+//        eventSource = new PostgresSnapshotChangeEventSource(
+//                config,
+//                null, //new PostgresOffsetContext("xx", "yy", null, null, null, false, false),
+//                TestHelper.create(),
+//                schema,
+//                new EventDispatcher<TableId>(config, selector, schema, eventQueue, config.getTableFilters().dataCollectionFilter(), DataChangeEvent::new),
+//                Clock.SYSTEM,
+//                new SnapshotProgressListener() {
+//                    
+//                    @Override
+//                    public void tableSnapshotCompleted(TableId tableId, long numRows) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotStarted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotCompleted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotAborted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void rowsScanned(TableId tableId, long numRows) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void monitoredTablesDetermined(Iterable<TableId> tableIds) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                }
+//        );
+//        eventSource.execute(new ChangeEventSourceContext() {
+//            
+//            @Override
+//            public boolean isRunning() {
+//                // TODO Auto-generated method stub
+//                return true;
+//            }
+//        });
         TestConsumer consumer = testConsumer2(2);
 //        snapshotProducer.start(consumer, e -> {});
 //
@@ -182,60 +175,60 @@ public class SnapshotChangeEventSourceIT extends AbstractRecordsProducerTest {
                     .build()
         );
         final PostgresSchema schema = TestHelper.getSchema(config);
-        eventSource = new PostgresSnapshotChangeEventSource(
-                config,
-                null, //new PostgresOffsetContext("xx", "yy", null, null, null, false, false),
-                TestHelper.create(),
-                schema,
-                new EventDispatcher<TableId>(config, PostgresTopicSelector.create(config), schema, eventQueue, config.getTableFilters().dataCollectionFilter(), DataChangeEvent::new),
-                Clock.SYSTEM,
-                new SnapshotProgressListener() {
-                    
-                    @Override
-                    public void tableSnapshotCompleted(TableId tableId, long numRows) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotStarted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotCompleted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void snapshotAborted() {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void rowsScanned(TableId tableId, long numRows) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                    
-                    @Override
-                    public void monitoredTablesDetermined(Iterable<TableId> tableIds) {
-                        // TODO Auto-generated method stub
-                        
-                    }
-                }
-        );
-        eventSource.execute(new ChangeEventSourceContext() {
-            
-            @Override
-            public boolean isRunning() {
-                // TODO Auto-generated method stub
-                return true;
-            }
-        });
+//        eventSource = new PostgresSnapshotChangeEventSource(
+//                config,
+//                null, //new PostgresOffsetContext("xx", "yy", null, null, null, false, false),
+//                TestHelper.create(),
+//                schema,
+//                new EventDispatcher<TableId>(config, PostgresTopicSelector.create(config), schema, eventQueue, config.getTableFilters().dataCollectionFilter(), DataChangeEvent::new),
+//                Clock.SYSTEM,
+//                new SnapshotProgressListener() {
+//                    
+//                    @Override
+//                    public void tableSnapshotCompleted(TableId tableId, long numRows) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotStarted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotCompleted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void snapshotAborted() {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void rowsScanned(TableId tableId, long numRows) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                    
+//                    @Override
+//                    public void monitoredTablesDetermined(Iterable<TableId> tableIds) {
+//                        // TODO Auto-generated method stub
+//                        
+//                    }
+//                }
+//        );
+//        eventSource.execute(new ChangeEventSourceContext() {
+//            
+//            @Override
+//            public boolean isRunning() {
+//                // TODO Auto-generated method stub
+//                return true;
+//            }
+//        });
 
         TestConsumer consumer = testConsumer2(ALL_STMTS.size(), "public", "Quoted__");
 
