@@ -16,6 +16,8 @@ import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.Configuration;
 import io.debezium.config.EnumeratedValue;
 import io.debezium.config.Field;
+import io.debezium.connector.AbstractSourceInfo;
+import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.document.Document;
 import io.debezium.function.Predicates;
 import io.debezium.heartbeat.Heartbeat;
@@ -253,7 +255,8 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
                 Heartbeat.HEARTBEAT_INTERVAL, Heartbeat.HEARTBEAT_TOPICS_PREFIX
         );
         Field.group(config, "Connector", CommonConnectorConfig.POLL_INTERVAL_MS, CommonConnectorConfig.MAX_BATCH_SIZE,
-                CommonConnectorConfig.MAX_QUEUE_SIZE, CommonConnectorConfig.SNAPSHOT_DELAY_MS, CommonConnectorConfig.SNAPSHOT_FETCH_SIZE);
+                CommonConnectorConfig.MAX_QUEUE_SIZE, CommonConnectorConfig.SNAPSHOT_DELAY_MS, CommonConnectorConfig.SNAPSHOT_FETCH_SIZE,
+                CommonConnectorConfig.SOURCE_STRUCT_MAKER_CLASS);
 
         return config;
     }
@@ -287,6 +290,11 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
 
     public Predicate<ColumnId> getColumnFilter() {
         return columnFilter;
+    }
+
+    @Override
+    protected SourceInfoStructMaker<? extends AbstractSourceInfo> getDefaultSourceInfoStructMaker() {
+        return new SqlServerSourceInfoStructMaker();
     }
 
     private static class SystemTablesPredicate implements TableFilter {
