@@ -21,14 +21,12 @@ public class OffsetState {
     private final Long lsn;
     private final Long txId;
     private final Long xmin;
-    private final Instant commitTs;
     private final boolean snapshotting;
 
-    public OffsetState(Long lsn, Long txId, Long xmin, Instant lastCommitTs, boolean isSnapshot) {
+    public OffsetState(Long lsn, Long txId, Long xmin, boolean isSnapshot) {
         this.lsn = lsn;
         this.txId = txId;
         this.xmin = xmin;
-        this.commitTs = lastCommitTs;
         this.snapshotting = isSnapshot;
     }
 
@@ -51,13 +49,6 @@ public class OffsetState {
      */
     public Long lastSeenXmin() {
         return xmin;
-    }
-
-    /**
-     * @return the last commit timestamp seen by debezium
-     */
-    public Instant lastCommitTs() {
-        return commitTs;
     }
 
     /**

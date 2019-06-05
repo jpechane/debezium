@@ -11,6 +11,7 @@ import org.apache.kafka.connect.data.Struct;
 
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.LegacyV1AbstractSourceInfoStructMaker;
+import io.debezium.time.Conversions;
 
 public class LegacyV1PostgresSourceInfoStructMaker extends LegacyV1AbstractSourceInfoStructMaker<SourceInfo> {
 
@@ -51,6 +52,7 @@ public class LegacyV1PostgresSourceInfoStructMaker extends LegacyV1AbstractSourc
         result.put(SourceInfo.DATABASE_NAME_KEY, sourceInfo.database());
         result.put(SourceInfo.SCHEMA_NAME_KEY, sourceInfo.schemaName());
         result.put(SourceInfo.TABLE_NAME_KEY, sourceInfo.tableName());
+        result.put(SourceInfo.TIMESTAMP_USEC_KEY, Conversions.toEpochMicros(sourceInfo.timestamp()));
         // use the offset information without the snapshot part (see below)
         sourceInfo.offset().forEach(result::put);
         return result;

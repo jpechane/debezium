@@ -20,7 +20,6 @@ import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.spi.OffsetState;
 import io.debezium.relational.TableId;
-import io.debezium.time.Conversions;
 
 /**
  * Information about the source of information, which for normal events contains information about the transaction id and the
@@ -111,7 +110,6 @@ public final class SourceInfo extends AbstractSourceInfo {
         this.lsn = ((Number) lastStoredOffset.get(LSN_KEY)).longValue();
         this.txId = ((Number) lastStoredOffset.get(TXID_KEY)).longValue();
         this.xmin = (Long) lastStoredOffset.get(XMIN_KEY);
-        this.timestamp = Conversions.toInstantFromMicros((Long) lastStoredOffset.get(TIMESTAMP_USEC_KEY));
         this.snapshot = lastStoredOffset.containsKey(SNAPSHOT_KEY);
         if (this.snapshot) {
             this.lastSnapshotRecord = (Boolean) lastStoredOffset.get(LAST_SNAPSHOT_RECORD_KEY);
@@ -138,9 +136,6 @@ public final class SourceInfo extends AbstractSourceInfo {
     public Map<String, ?> offset() {
         assert serverName() != null && dbName != null;
         Map<String, Object> result = new HashMap<>();
-        if (timestamp != null) {
-            result.put(TIMESTAMP_USEC_KEY, Conversions.toEpochMicros(timestamp));
-        }
         if (txId != null) {
             result.put(TXID_KEY, txId);
         }
@@ -158,7 +153,7 @@ public final class SourceInfo extends AbstractSourceInfo {
     }
 
     public OffsetState asOffsetState() {
-        return new OffsetState(lsn, txId, xmin, timestamp, isSnapshotInEffect());
+        return new OffsetState(lsn, txId, xmin, isSnapshotInEffect());
     }
 
     /**

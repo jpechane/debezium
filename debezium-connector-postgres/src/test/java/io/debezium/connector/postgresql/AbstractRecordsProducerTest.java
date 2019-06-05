@@ -774,7 +774,7 @@ public abstract class AbstractRecordsProducerTest {
     protected void assertRecordOffsetAndSnapshotSource(SourceRecord record, boolean shouldBeSnapshot, boolean shouldBeLastSnapshotRecord) {
         Map<String, ?> offset = record.sourceOffset();
         assertNotNull(offset.get(SourceInfo.TXID_KEY));
-        assertNotNull(offset.get(SourceInfo.TIMESTAMP_USEC_KEY));
+        assertNull(offset.get(SourceInfo.TIMESTAMP_USEC_KEY));
         assertNotNull(offset.get(SourceInfo.LSN_KEY));
         Object snapshot = offset.get(SourceInfo.SNAPSHOT_KEY);
 

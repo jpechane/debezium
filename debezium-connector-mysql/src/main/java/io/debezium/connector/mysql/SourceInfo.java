@@ -273,9 +273,6 @@ final class SourceInfo extends AbstractSourceInfo {
         if (rowsToSkip != 0) {
             map.put(BINLOG_ROW_IN_EVENT_OFFSET_KEY, rowsToSkip);
         }
-        if (binlogTimestampSeconds != 0) {
-            map.put(TIMESTAMP_KEY, binlogTimestampSeconds);
-        }
         if (isSnapshotInEffect()) {
             map.put(SNAPSHOT_KEY, true);
         }
