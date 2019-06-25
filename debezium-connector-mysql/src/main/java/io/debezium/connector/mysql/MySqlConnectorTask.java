@@ -323,7 +323,7 @@ public final class MySqlConnectorTask extends BaseSourceTask {
                 }
             }
         }
-        return restartOffset.isEmpty()? storedOffset : restartOffset;
+        return restartOffset.isEmpty() ? storedOffset : restartOffset;
     }
 
     private static MySqlTaskContext createAndStartTaskContext(Configuration config,

@@ -188,12 +188,12 @@ public class ReconcilingBinlogReader implements Reader {
 
     /*package private*/ BinlogReader getLeadingReader() {
         checkLaggingLeadingInfo();
-        return aReaderLeading? binlogReaderA : binlogReaderB;
+        return aReaderLeading ? binlogReaderA : binlogReaderB;
     }
 
     /*package private*/ BinlogReader getLaggingReader() {
         checkLaggingLeadingInfo();
-        return aReaderLeading? binlogReaderB : binlogReaderA;
+        return aReaderLeading ? binlogReaderB : binlogReaderA;
     }
 
     private void checkLaggingLeadingInfo() {
