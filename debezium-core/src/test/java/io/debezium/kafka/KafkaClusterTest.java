@@ -26,6 +26,7 @@ import io.debezium.junit.SkipLongRunning;
 import io.debezium.junit.SkipTestRule;
 import io.debezium.util.Stopwatch;
 import io.debezium.util.Testing;
+import kafka.server.KafkaConfig;
 
 /**
  * @author Randall Hauch
@@ -41,9 +42,12 @@ public class KafkaClusterTest {
     @Before
     public void beforeEach() {
         dataDir = Testing.Files.createTestingDirectory("cluster");
+        final Properties kafkaProperties = new Properties();
+        kafkaProperties.setProperty(KafkaConfig.ZkSessionTimeoutMsProp(), "20000");
         cluster = new KafkaCluster().usingDirectory(dataDir)
                                     .deleteDataPriorToStartup(true)
-                                    .deleteDataUponShutdown(true);
+                                    .deleteDataUponShutdown(true)
+                                    .withKafkaConfiguration(kafkaProperties);
     }
 
     @After
