@@ -1377,6 +1377,7 @@ public class PostgresConnectorIT extends AbstractConnectorTest {
         stopConnector();
     }
 
+    @Test
     @FixFor("DBZ-1292")
     public void shouldOutputRecordsInCloudEventsFormat() throws Exception {
         TestHelper.execute(SETUP_TABLES_STMT);
