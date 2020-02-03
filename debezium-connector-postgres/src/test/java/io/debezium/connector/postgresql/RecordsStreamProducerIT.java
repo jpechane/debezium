@@ -2035,7 +2035,10 @@ public class RecordsStreamProducerIT extends AbstractRecordsProducerTest {
     private void assertHeartBeatRecordInserted() {
         assertFalse("records not generated", consumer.isEmpty());
 
-        SourceRecord heartbeat = consumer.remove();
+        assertHeartBeatRecord(consumer.remove());
+    }
+
+    private void assertHeartBeatRecord(SourceRecord heartbeat) {
         assertEquals("__debezium-heartbeat." + TestHelper.TEST_SERVER, heartbeat.topic());
 
         Struct key = (Struct) heartbeat.key();
