@@ -1,7 +1,5 @@
 name: Java Quality Outreach
-on:
-  schedule:
-    - cron: 0 22 * * *
+on: push
 
 jobs:
   sqlserver:
