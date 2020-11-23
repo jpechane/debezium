@@ -8,7 +8,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>debezium-api</artifactId>
-    <name>Debezium API</name>
+    <name>Debezium API 2</name>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
