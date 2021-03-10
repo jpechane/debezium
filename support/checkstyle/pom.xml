@@ -23,6 +23,7 @@
         <version.checkstyle>8.32</version.checkstyle>
 
         <checkstyle.skip>true</checkstyle.skip>
+        <format.skip>true</format.skip>
     </properties>
 
     <!--
