@@ -21,20 +21,4 @@
         <version.jar.plugin>3.0.2</version.jar.plugin>
         <version.compiler.plugin>3.8.1</version.compiler.plugin>
     </properties>
- 
-    <build>
-        <plugins>
-            <!-- 
-            This is not deployed into a Maven repository. It is merely installed into the local Maven repository
-            during a local build.
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <configuration>
-                    <skip>${skip.support.deploy}</skip>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

@@ -47,17 +47,6 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>${version.checkstyle.plugin}</version>
             </plugin>
-            <!-- 
-            This is not deployed into a Maven repository. It is merely installed into the local Maven repository
-            during a local build.
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <configuration>
-                    <skip>${skip.support.deploy}</skip>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>

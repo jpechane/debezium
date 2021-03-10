@@ -169,7 +169,6 @@
 
         <!-- Which Maven Central infra should be used -->
         <release.endpoint>https://s01.oss.sonatype.org/</release.endpoint>
-        <skip.support.deploy>false</skip.support.deploy>
     </properties>
 
     <modules>
