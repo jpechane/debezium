@@ -5,64 +5,101 @@
  */
 package io.debezium.connector.mysql;
 
-import static io.debezium.junit.EqualityCheck.LESS_THAN;
 import static org.fest.assertions.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.sql.SQLException;
 
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.utility.DockerImageName;
 
+import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.Configuration;
 import io.debezium.embedded.AbstractConnectorTest;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.junit.SkipWhenDatabaseVersion;
+import io.debezium.relational.history.FileDatabaseHistory;
 import io.debezium.util.Testing;
 
-@SkipWhenDatabaseVersion(check = LESS_THAN, major = 8, reason = "DDL uses column constraints, not supported until MySQL 8.0")
+/**
+ * Integration test for {@link MySqlConnector} using Testcontainers infrastructure for testing column constraints supported in MySQL 8.0.x.
+ */
+
 public class MySqlParserIT extends AbstractConnectorTest {
 
-    private static final Path DB_HISTORY_PATH = Testing.Files.createTestingPath("file-db-history-column-constraint.txt").toAbsolutePath();
-    private final UniqueDatabase DATABASE = new UniqueDatabase("myServer1", "connector_test")
-            .withDbHistoryPath(DB_HISTORY_PATH);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MySqlParserIT.class);
+
+    private static final Path DB_HISTORY_PATH = Testing.Files.createTestingPath("file-db-history-column-constraints.txt").toAbsolutePath();
+
+    private static final String MYSQL_IMAGE = "debezium/example-mysql:1.7";
+
+    private static final DockerImageName MYSQL_DOCKER_IMAGE_NAME = DockerImageName.parse(MYSQL_IMAGE)
+            .asCompatibleSubstituteFor("mysql");
+
+    private static final MySQLContainer<?> mySQLContainer = new MySQLContainer<>(MYSQL_DOCKER_IMAGE_NAME)
+            .withDatabaseName("mysql")
+            .withUsername("mysql")
+            .withPassword("mysql")
+            .withClasspathResourceMapping("/docker/conf/mysql.cnf", "/etc/mysql/conf.d/", BindMode.READ_ONLY)
+            .withLogConsumer(new Slf4jLogConsumer(LOGGER))
+            .withExposedPorts(3306)
+            .withNetworkAliases("mysql");
 
     private Configuration config;
+    private String oldContainerPort;
 
     @Before
     public void beforeEach() {
-        stopConnector();
-        DATABASE.createAndInitialize();
+        mySQLContainer.start();
+        oldContainerPort = System.getProperty("database.port", "3306");
+        System.setProperty("database.port", String.valueOf(mySQLContainer.getMappedPort(3306)));
         initializeConnectorTestFramework();
         Testing.Files.delete(DB_HISTORY_PATH);
     }
 
     @After
     public void afterEach() {
-        try {
-            stopConnector();
-        }
-        finally {
-            Testing.Files.delete(DB_HISTORY_PATH);
-        }
+        stopConnector();
+        mySQLContainer.stop();
+        System.setProperty("database.port", oldContainerPort);
+        Testing.Files.delete(DB_HISTORY_PATH);
+    }
+
+    public Configuration.Builder defaultConfig() {
+        return Configuration.create()
+                .with(MySqlConnectorConfig.SERVER_NAME, "myServer1")
+                .with(MySqlConnectorConfig.HOSTNAME, System.getProperty("database.hostname", "localhost"))
+                .with(CommonConnectorConfig.DATABASE_CONFIG_PREFIX + JdbcConfiguration.PORT, mySQLContainer.getMappedPort(3306))
+                .with(MySqlConnectorConfig.USER, mySQLContainer.getUsername())
+                .with(MySqlConnectorConfig.PASSWORD, mySQLContainer.getPassword())
+                .with(MySqlConnectorConfig.SNAPSHOT_MODE, MySqlConnectorConfig.SnapshotMode.INITIAL)
+                .with(MySqlConnectorConfig.SSL_MODE, MySqlConnectorConfig.SecureConnectionMode.DISABLED)
+                .with(MySqlConnectorConfig.SERVER_ID, 18765)
+                .with(MySqlConnectorConfig.POLL_INTERVAL_MS, 10)
+                .with(FileDatabaseHistory.FILE_PATH, DB_HISTORY_PATH)
+                .with(MySqlConnectorConfig.DATABASE_INCLUDE_LIST, mySQLContainer.getDatabaseName())
+                .with(MySqlConnectorConfig.BUFFER_SIZE_FOR_BINLOG_READER, 10_000);
     }
 
     @Test
     public void parseTableWithVisibleColumns() throws SQLException, InterruptedException {
-        config = DATABASE.defaultConfig()
-                .with(MySqlConnectorConfig.SNAPSHOT_MODE, MySqlConnectorConfig.SnapshotMode.INITIAL)
-                .build();
+        config = defaultConfig().build();
+
+        Testing.Print.enable();
 
         // Start the connector ...
         start(MySqlConnector.class, config);
 
-        Testing.Print.enable();
-
-        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DATABASE.getDatabaseName())) {
+        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(mySQLContainer.getDatabaseName())) {
             try (JdbcConnection connection = db.connect()) {
+                connection.execute("SELECT VERSION();");
                 connection.execute("CREATE TABLE VISIBLE_COLUMN_TABLE (" +
                         "    ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
                         "    NAME VARCHAR(100) NOT NULL," +
@@ -77,31 +114,25 @@ public class MySqlParserIT extends AbstractConnectorTest {
             }
         }
         SourceRecords records = consumeRecordsByTopic(2);
-
-        final SourceRecord recordStream = records.recordsForTopic(DATABASE.topicForTable("VISIBLE_COLUMN_TABLE")).get(0);
-        assertThat(((Struct) recordStream.value()).getStruct("after").getString("WORK_ID")).isEqualTo("113");
-
-        assertThat(records.recordsForTopic(DATABASE.topicForTable("VISIBLE_COLUMN_TABLE")).size()).isEqualTo(1);
-        assertThat(records.ddlRecordsForDatabase(DATABASE.getDatabaseName()).size()).isEqualTo(1);
+        assertThat(records.ddlRecordsForDatabase(mySQLContainer.getDatabaseName()).size()).isEqualTo(1);
     }
 
     @Test
     public void parseTableWithInVisibleColumns() throws SQLException, InterruptedException {
-        config = DATABASE.defaultConfig()
-                .with(MySqlConnectorConfig.SNAPSHOT_MODE, MySqlConnectorConfig.SnapshotMode.INITIAL)
-                .build();
+        config = defaultConfig().build();
+
+        Testing.Print.enable();
 
         // Start the connector ...
         start(MySqlConnector.class, config);
 
-        Testing.Print.enable();
-
-        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DATABASE.getDatabaseName())) {
+        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(mySQLContainer.getDatabaseName())) {
             try (JdbcConnection connection = db.connect()) {
+                connection.execute("SELECT VERSION();");
                 connection.execute("CREATE TABLE INVISIBLE_COLUMN_TABLE (" +
-                        "    ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
-                        "    NAME VARCHAR(100) NOT NULL," +
-                        "    WORK_ID BIGINT INVISIBLE" +
+                        " ID BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
+                        " NAME VARCHAR(100) NOT NULL," +
+                        " WORK_ID BIGINT INVISIBLE" +
                         ");");
                 connection.execute("INSERT INTO INVISIBLE_COLUMN_TABLE VALUES (1002,'Jack',111);");
                 connection.query("SELECT * FROM INVISIBLE_COLUMN_TABLE", rs -> {
@@ -112,11 +143,6 @@ public class MySqlParserIT extends AbstractConnectorTest {
             }
         }
         SourceRecords records = consumeRecordsByTopic(2);
-
-        final SourceRecord recordStream = records.recordsForTopic(DATABASE.topicForTable("INVISIBLE_COLUMN_TABLE")).get(0);
-        assertThat(((Struct) recordStream.value()).getStruct("after").getString("WORK_ID")).isEqualTo("111");
-
-        assertThat(records.recordsForTopic(DATABASE.topicForTable("INVISIBLE_COLUMN_TABLE")).size()).isEqualTo(1);
-        assertThat(records.ddlRecordsForDatabase(DATABASE.getDatabaseName()).size()).isEqualTo(1);
+        assertThat(records.ddlRecordsForDatabase(mySQLContainer.getDatabaseName()).size()).isEqualTo(1);
     }
 }
