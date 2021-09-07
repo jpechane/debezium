@@ -25,7 +25,6 @@ import io.debezium.config.Configuration;
 import io.debezium.embedded.AbstractConnectorTest;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.history.FileDatabaseHistory;
 import io.debezium.util.Testing;
 
 /**
@@ -43,9 +42,11 @@ public class MySqlParserIT extends AbstractConnectorTest {
     private static final DockerImageName MYSQL_DOCKER_IMAGE_NAME = DockerImageName.parse(MYSQL_IMAGE)
             .asCompatibleSubstituteFor("mysql");
 
+    private static final String DB_NAME = "inventory";
+
     private static final MySQLContainer<?> mySQLContainer = new MySQLContainer<>(MYSQL_DOCKER_IMAGE_NAME)
             .withDatabaseName("mysql")
-            .withUsername("mysql")
+            .withUsername("mysqluser")
             .withPassword("mysql")
             .withClasspathResourceMapping("/docker/conf/mysql.cnf", "/etc/mysql/conf.d/", BindMode.READ_ONLY)
             .withLogConsumer(new Slf4jLogConsumer(LOGGER))
@@ -83,8 +84,8 @@ public class MySqlParserIT extends AbstractConnectorTest {
                 .with(MySqlConnectorConfig.SSL_MODE, MySqlConnectorConfig.SecureConnectionMode.DISABLED)
                 .with(MySqlConnectorConfig.SERVER_ID, 18765)
                 .with(MySqlConnectorConfig.POLL_INTERVAL_MS, 10)
-                .with(FileDatabaseHistory.FILE_PATH, DB_HISTORY_PATH)
-                .with(MySqlConnectorConfig.DATABASE_INCLUDE_LIST, mySQLContainer.getDatabaseName())
+                .with(MySqlConnectorConfig.DATABASE_HISTORY, "io.debezium.relational.history.MemoryDatabaseHistory")
+                .with(MySqlConnectorConfig.DATABASE_INCLUDE_LIST, DB_NAME)
                 .with(MySqlConnectorConfig.BUFFER_SIZE_FOR_BINLOG_READER, 10_000);
     }
 
@@ -97,7 +98,7 @@ public class MySqlParserIT extends AbstractConnectorTest {
         // Start the connector ...
         start(MySqlConnector.class, config);
 
-        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(mySQLContainer.getDatabaseName())) {
+        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DB_NAME)) {
             try (JdbcConnection connection = db.connect()) {
                 connection.execute("SELECT VERSION();");
                 connection.execute("CREATE TABLE VISIBLE_COLUMN_TABLE (" +
@@ -114,7 +115,7 @@ public class MySqlParserIT extends AbstractConnectorTest {
             }
         }
         SourceRecords records = consumeRecordsByTopic(2);
-        assertThat(records.ddlRecordsForDatabase(mySQLContainer.getDatabaseName()).size()).isEqualTo(1);
+        assertThat(records.ddlRecordsForDatabase(DB_NAME).size()).isEqualTo(1);
     }
 
     @Test
@@ -126,7 +127,7 @@ public class MySqlParserIT extends AbstractConnectorTest {
         // Start the connector ...
         start(MySqlConnector.class, config);
 
-        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(mySQLContainer.getDatabaseName())) {
+        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DB_NAME)) {
             try (JdbcConnection connection = db.connect()) {
                 connection.execute("SELECT VERSION();");
                 connection.execute("CREATE TABLE INVISIBLE_COLUMN_TABLE (" +
@@ -143,6 +144,6 @@ public class MySqlParserIT extends AbstractConnectorTest {
             }
         }
         SourceRecords records = consumeRecordsByTopic(2);
-        assertThat(records.ddlRecordsForDatabase(mySQLContainer.getDatabaseName()).size()).isEqualTo(1);
+        assertThat(records.ddlRecordsForDatabase(DB_NAME).size()).isEqualTo(1);
     }
 }
