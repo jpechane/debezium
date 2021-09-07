@@ -44,4 +44,4 @@ expire_logs_days  = 1
 binlog_format     = row
 
 # Configures the amount of table metadata added to the binary log when using row-based logging
-binlog-row-metadata=FULL
+binlog_row_metadata = FULL
