@@ -45,3 +45,5 @@ binlog_format     = row
 
 # Configures the amount of table metadata added to the binary log when using row-based logging
 binlog_row_metadata = FULL
+
+default_authentication_plugin = mysql_native_password

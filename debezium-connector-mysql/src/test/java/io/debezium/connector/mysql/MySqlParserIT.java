@@ -78,8 +78,8 @@ public class MySqlParserIT extends AbstractConnectorTest {
                 .with(MySqlConnectorConfig.SERVER_NAME, "myServer1")
                 .with(MySqlConnectorConfig.HOSTNAME, System.getProperty("database.hostname", "localhost"))
                 .with(CommonConnectorConfig.DATABASE_CONFIG_PREFIX + JdbcConfiguration.PORT, mySQLContainer.getMappedPort(3306))
-                .with(MySqlConnectorConfig.USER, mySQLContainer.getUsername())
-                .with(MySqlConnectorConfig.PASSWORD, mySQLContainer.getPassword())
+                .with(MySqlConnectorConfig.USER, "debezium")
+                .with(MySqlConnectorConfig.PASSWORD, "dbz")
                 .with(MySqlConnectorConfig.SNAPSHOT_MODE, MySqlConnectorConfig.SnapshotMode.INITIAL)
                 .with(MySqlConnectorConfig.SSL_MODE, MySqlConnectorConfig.SecureConnectionMode.DISABLED)
                 .with(MySqlConnectorConfig.SERVER_ID, 18765)
@@ -98,7 +98,7 @@ public class MySqlParserIT extends AbstractConnectorTest {
         // Start the connector ...
         start(MySqlConnector.class, config);
 
-        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DB_NAME)) {
+        try (MySqlTestConnection db = MySqlTestConnection.forTestDatabase(DB_NAME, mySQLContainer.getUsername(), mySQLContainer.getPassword())) {
             try (JdbcConnection connection = db.connect()) {
                 connection.execute("SELECT VERSION();");
                 connection.execute("CREATE TABLE VISIBLE_COLUMN_TABLE (" +
