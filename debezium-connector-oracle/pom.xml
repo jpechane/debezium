@@ -243,7 +243,7 @@
                             <dependency>
                                 <groupId>io.debezium</groupId>
                                 <artifactId>debezium-assembly-descriptors</artifactId>
-                                <version>${project.version}</version>
+                                <version>${debezium.version}</version>
                             </dependency>
                         </dependencies>
                         <executions>
@@ -254,7 +254,7 @@
                                     <goal>single</goal>
                                 </goals>
                                 <configuration>
-                                    <finalName>${project.artifactId}-${project.version}</finalName>
+                                    <finalName>${project.artifactId}-${debezium.version}</finalName>
                                     <attach>true</attach>  <!-- we want attach & deploy these to Maven -->
                                     <descriptorRefs>
                                         <descriptorRef>${connector.assembly.ref}</descriptorRef>
@@ -304,7 +304,7 @@
                             <dependency>
                                 <groupId>io.debezium</groupId>
                                 <artifactId>debezium-assembly-descriptors</artifactId>
-                                <version>${project.version}</version>
+                                <version>${debezium.version}</version>
                             </dependency>
                         </dependencies>
                         <executions>
@@ -315,7 +315,7 @@
                                     <goal>single</goal>
                                 </goals>
                                 <configuration>
-                                    <finalName>${project.artifactId}-${project.version}</finalName>
+                                    <finalName>${project.artifactId}-${debezium.version}</finalName>
                                     <attach>true</attach>  <!-- we want attach & deploy these to Maven -->
                                     <descriptorRefs>
                                         <descriptorRef>${connector.assembly.ref}</descriptorRef>

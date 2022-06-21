@@ -78,58 +78,58 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-core</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-kinesis</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-http</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-pubsub</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-pulsar</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-eventhubs</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-redis</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-kafka</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-pravega</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-nats-streaming</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-server-core</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
 
             <!-- Target systems -->
@@ -173,7 +173,7 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-testing-testcontainers</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>

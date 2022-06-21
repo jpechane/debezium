@@ -518,112 +518,112 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-api</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-core</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-scripting</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
 	    <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-scripting-languages</artifactId>
 		<type>pom</type>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-embedded</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-jdbc</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-postgres</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-postgres-test</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-mysql</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-ddl-parser</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-mongodb</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-sqlserver</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-oracle</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-db2</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-vitess</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-cassandra</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-testing-testcontainers</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-schema-generator</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
 
             <!-- Debezium test artifacts -->
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-core</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
                 <type>test-jar</type>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-embedded</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
                 <type>test-jar</type>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-mysql</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
                 <type>test-jar</type>
             </dependency>
         </dependencies>

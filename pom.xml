@@ -92,6 +92,9 @@
         <!-- Which Maven Central infra should be used -->
         <release.endpoint>https://s01.oss.sonatype.org/</release.endpoint>
 
+        <!-- Core Debezium version -->
+	<debezium.version>${project.version}</debezium.version>
+
         <!-- Kafka and it's dependencies MUST reflect what the Kafka version uses -->
         <version.kafka>3.2.0</version.kafka>
         <version.zookeeper>3.6.3</version.zookeeper>

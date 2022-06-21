@@ -16,12 +16,12 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-microbenchmark</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-oracle</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

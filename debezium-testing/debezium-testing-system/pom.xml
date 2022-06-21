@@ -26,8 +26,8 @@
 
     <!--KC image configuration-->
     <image.build.registry>quay.io</image.build.registry>
-    <image.kc>${image.build.registry}/debezium/testing-openshift-connect:kafka-${version.kafka}-${project.version}</image.kc>
-    <image.as>${image.build.registry}/debezium/test-artifact-server:${project.version}</image.as>
+    <image.kc>${image.build.registry}/debezium/testing-openshift-connect:kafka-${version.kafka}-${debezium.version}</image.kc>
+    <image.as>${image.build.registry}/debezium/test-artifact-server:${debezium.version}</image.as>
 
     <!--Docker configuration-->
     <docker.image.mysql>quay.io/debezium/example-mysql:latest</docker.image.mysql>
@@ -116,7 +116,7 @@
     <database.oracle.pdbname>ORCLPDB1</database.oracle.pdbname>
 
     <!--Debezium connector versions-->
-    <version.debezium.connector>${project.version}</version.debezium.connector>
+    <version.debezium.connector>${debezium.version}</version.debezium.connector>
 
     <!-- Artifact repository for KC build -->
     <as.url>http://debezium-artifact-server.${ocp.project.debezium}.svc.cluster.local:8080</as.url>

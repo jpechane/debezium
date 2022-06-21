@@ -67,7 +67,7 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-bom</artifactId>
-                <version>${project.version}</version>
+                <version>${debezium.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -109,7 +109,7 @@
                         <dependency>
                             <groupId>io.debezium</groupId>
                             <artifactId>debezium-ide-configs</artifactId>
-                            <version>${project.version}</version>
+                            <version>${debezium.version}</version>
                         </dependency>
                     </dependencies>
                     <configuration>
@@ -147,7 +147,7 @@
                         <dependency>
                             <groupId>io.debezium</groupId>
                             <artifactId>debezium-revapi</artifactId>
-                            <version>${project.version}</version>
+                            <version>${debezium.version}</version>
                         </dependency>
                         <dependency>
                             <groupId>org.revapi</groupId>
@@ -292,7 +292,7 @@
                             <dependency>
                                 <groupId>io.debezium</groupId>
                                 <artifactId>debezium-checkstyle</artifactId>
-                                <version>${project.version}</version>
+                                <version>${debezium.version}</version>
                             </dependency>
                         </dependencies>
                         <configuration>
