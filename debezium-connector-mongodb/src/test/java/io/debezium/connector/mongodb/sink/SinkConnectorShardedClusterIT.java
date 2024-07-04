@@ -16,9 +16,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import io.debezium.connector.mongodb.AbstractShardedMongoConnectorIT;
-import io.debezium.connector.mongodb.junit.MongoDbDatabaseProvider;
 import io.debezium.connector.mongodb.junit.MongoDbDatabaseVersionResolver;
 import io.debezium.connector.mongodb.junit.MongoDbPlatform;
+import io.debezium.connector.mongodb.sink.junit.NetworkIsolatedMongoDbDatabaseProvider;
 import io.debezium.testing.testcontainers.MongoDbDeployment;
 import io.debezium.testing.testcontainers.MongoDbShardedCluster;
 import io.debezium.testing.testcontainers.testhelper.TestInfrastructureHelper;
@@ -40,7 +40,7 @@ public class SinkConnectorShardedClusterIT extends AbstractShardedMongoConnector
                 is("true"));
         Assume.assumeTrue(MongoDbDatabaseVersionResolver.getPlatform().equals(MongoDbPlatform.MONGODB_DOCKER));
         DockerUtils.enableFakeDnsIfRequired();
-        mongo = MongoDbDatabaseProvider.mongoDbShardedCluster(TestInfrastructureHelper.getNetwork());
+        mongo = new NetworkIsolatedMongoDbDatabaseProvider(TestInfrastructureHelper.getNetwork()).externalOrDockerReplicaSet();
         mongo.start();
     }
 

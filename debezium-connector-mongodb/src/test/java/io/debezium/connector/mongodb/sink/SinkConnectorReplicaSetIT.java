@@ -16,7 +16,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import io.debezium.connector.mongodb.AbstractMongoConnectorIT;
-import io.debezium.connector.mongodb.junit.MongoDbDatabaseProvider;
+import io.debezium.connector.mongodb.sink.junit.NetworkIsolatedMongoDbDatabaseProvider;
 import io.debezium.testing.testcontainers.MongoDbDeployment;
 import io.debezium.testing.testcontainers.testhelper.TestInfrastructureHelper;
 import io.debezium.testing.testcontainers.util.DockerUtils;
@@ -36,7 +36,7 @@ public class SinkConnectorReplicaSetIT extends AbstractMongoConnectorIT implemen
                 System.getProperty("isAssemblyProfileActive", "false"),
                 is("true"));
         DockerUtils.enableFakeDnsIfRequired();
-        mongo = MongoDbDatabaseProvider.externalOrDockerReplicaSet(TestInfrastructureHelper.getNetwork());
+        mongo = new NetworkIsolatedMongoDbDatabaseProvider(TestInfrastructureHelper.getNetwork()).externalOrDockerReplicaSet();
         mongo.start();
     }
 
