@@ -292,7 +292,7 @@ You might still be able to capture data from the table, but you must perform add
 
 * You want to capture data from a table with a schema that the connector did not capture during the initial snapshot.
 * No schema changes were applied to the table between the LSNs of the earliest and latest change table entry that the connector reads.
-For information about capturing data from a new table that has undergone structural changes, see xref:db2-capturing-data-from-new-tables-with-schema-changes[].
+For information about capturing data from a new table that has undergone structural changes, see xref:sqlserver-capturing-data-from-new-tables-with-schema-changes[].
 
 .Procedure
 
@@ -576,9 +576,9 @@ The connector uses the stored schema representation to produce change events tha
 When the connector restarts after either a crash or a graceful stop, it resumes reading entries in the SQL Server CDC tables from the last position that it read.
 Based on the schema information that the connector reads from the database schema history topic, the connector applies the table structures that existed at the position where the connector restarts.
 
-If you update the schema of a Db2 table that is in capture mode, it's important that you also update the schema of the corresponding change table.
+If you update the schema of a SQL Server table that is in capture mode, it's important that you also update the schema of the corresponding change table.
 You must be a SQL Server database administrator with elevated privileges to update database schema.
-For more information about updating SQL Server database schema in {prodname} environmenbts, see xref:sqlserver-schema-evolution[Database schema evolution].
+For more information about updating SQL Server database schema in {prodname} environments, see xref:sqlserver-schema-evolution[Database schema evolution].
 
 The database schema history topic is for internal connector use only.
 Optionally, the connector can also xref:about-the-debezium-sqlserver-connector-schema-change-topic[emit schema change events to a different topic that is intended for consumer applications].
@@ -3471,7 +3471,9 @@ However, offline updates might not be feasible for use with applications that re
 5. Create a new capture table for the update source table using `sys.sp_cdc_enable_table` procedure with a unique value for parameter `@capture_instance`.
 6. Resume the application that you suspended in Step 1.
 7. Start the {prodname} connector.
-8. After the {prodname} connector starts streaming from the new capture table, drop the old capture table by running the stored procedure `sys.sp_cdc_disable_table` with the parameter `@capture_instance` set to the old capture instance name.
+8. After the {prodname} connector starts streaming from the new capture table, drop the old capture table by running the stored procedure `sys.sp_cdc_disable_table` with the parameter `@capture_instance` set to the old capture instance name. 
+The connector emits a notification after it finishes reading from the old capture instance.
+For more information, see xref:sqlserver-notifications[Notifications].
 
 // Type: procedure
 // ModuleID: debezium-sql-server-connector-running-an-online-update-after-a-schema-change
@@ -3495,7 +3497,9 @@ If your application does not tolerate such a transition period, it is best to us
 .Procedure
 1. Apply all changes to the source table schema.
 2. Create a new capture table for the update source table by running the `sys.sp_cdc_enable_table` stored procedure with a unique value for the parameter `@capture_instance`.
-3. When {prodname} starts streaming from the new capture table, you can drop the old capture table by running the `sys.sp_cdc_disable_table` stored procedure with the parameter `@capture_instance` set to the old capture instance name.
+3. After {prodname} starts streaming from the new capture table, you can drop the old capture table by running the `sys.sp_cdc_disable_table` stored procedure with the parameter `@capture_instance` set to the old capture instance name.
+The connector emits a notification after it finishes reading from the old capture instance. 
+For more information, see xref:sqlserver-notifications[Notifications].
 
 
 .Example: Running an online schema update after a database schema change
@@ -3576,6 +3580,36 @@ Eventually, the `phone_number` field is added to the schema and its value appear
 ----
 EXEC sys.sp_cdc_disable_table @source_schema = 'dbo', @source_name = 'dbo_customers', @capture_instance = 'dbo_customers';
 GO
+----
+
+// Type: concept
+// ModuleID: debezium-sql-server-connector-status-notification-after-a-schema-change
+// Title: Status notifications that the {prodname} SQL Server connector emits after a schema change.
+[[sqlserver-notifications]]
+== Notifications
+
+If you enable notifications for the connector, after you make a schema change, the connector emits a notification to report the status of the change. 
+For more information about notifications and how to enable them, see the {link-prefix}:{link-notification}#debezium-notification[{prodname} notifications documentation].
+
+The following example shows a status notification that {prodname} might emit after a schema evolution change.
+
+[source, json]
+----
+{
+      "id":"ff81ba59-15ea-42ae-b5d0-4d74f1f4038f",
+      "aggregate_type":"Capture Instance",
+      "type":"COMPLETED",
+      "additional_data":{
+         "connector_name":"my-connector",
+         "capture_instance":"dbo_customers",
+         "server":"server1",
+         "database":"testDB",
+         "start_lsn":"00000027:00000758:0003",
+         "stop_lsn":"00000028:00000759:0004",
+         "commit_lsn":"00000029:00000760:0005"
+      },
+      "timestamp": "1695817046353"
+}
 ----
 
 // Type: assembly

@@ -23,6 +23,7 @@ Alexandre Colella
 Alexandru Cristu
 Alexey Loubyansky
 Alexey Miroshnikov
+Aleksei Silantev
 Alfusainey Jallow
 Alisa Houskova
 Alvar Viana
@@ -238,6 +239,7 @@ Jesse Ehrenzweig
 Jiabao Sun
 Jiri Kulhanek
 Jon Bruno
+Jona J
 Jonas Thelemann
 Jono Morris
 Jordan Pittier
@@ -256,6 +258,7 @@ Henk van Dyk
 Henrik Schnell
 Henry Cai
 Henryk Konsek
+Hesjona Hilaj
 Hidetomi Umaki
 Himanshu Mishra
 Hoa Le
@@ -265,6 +268,7 @@ Hubert Dulay
 Hussain Ansari
 Hyunjin Oh
 Ian Axelrod
+Ifig Le Pennec
 Igor Gabaydulin
 Ilia Bogdanov
 Ilyas Ahsan
@@ -303,6 +307,7 @@ Johan Venant
 John Graf
 John Martin
 John Psoroulas
+John Tanza
 John Wu
 Jon Casstevens
 Jonas Lins
@@ -359,11 +364,13 @@ Liz Chatman
 Lokesh Sanapalli
 Lourens Naudé
 Luca Scannapieco
+Lucas Gazire
 Luis Garcés-Erice
 Lukas Krejci
 Lukas Langegger
 Lukasz Korzeniowski
 Lukasz Selwa
+Luke Alexander
 lyidataminr
 M Sazzadul Hoque
 Maciej Bryński
@@ -371,6 +378,7 @@ Mans Singh
 MaoXiang Pan
 Marc Zbyszynski
 Marcelo Avancini
+Marci
 Marek Winkler
 Mario Fiore Vitale
 Mario Mueller
@@ -388,6 +396,7 @@ Martin Vlk
 Martin Walsh
 Masazumi Kobayashi
 Mathijs van den Worm
+Matt Bayley
 Matt Beary
 Matt Hejnas
 Matt Vance
@@ -434,6 +443,7 @@ Navdeep Agarwal
 Naveen Kumar KR
 Nayana Hettiarachchi
 Nenad Stojanovikj
+Nick Chomey
 Nick Murray
 Niels Pardon
 Nikhil Benesch
@@ -477,6 +487,7 @@ Piotr Piastucki
 Plugaru Tudor
 Poonam Meghnani
 Pradeep Mamillapalli
+Pranav Tiwari
 Prannoy Mittal
 Praveen Burgu
 Preethi Sadagopan
@@ -550,6 +561,7 @@ Shubham Rawat
 Shuguang Xiang
 Shuran Zhang
 Shushant Kumar
+Shyama Praveena S
 SiuFay
 Siddhant Agnihotry
 Stanislav Deviatov
@@ -607,6 +619,7 @@ Vincenzo Santonastaso
 Victar Malinouski
 Victor Castaño
 Victor Xiang
+Virag Tripathi
 Vivek Wassan
 Vladimir Osin
 Vojtech Juranek

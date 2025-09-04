@@ -104,7 +104,7 @@
         <version.build-helper.plugin>1.9.1</version.build-helper.plugin>
 
         <!-- Kafka and it's dependencies MUST reflect what the Kafka version uses -->
-        <version.kafka>3.9.0</version.kafka>
+        <version.kafka>4.0.0</version.kafka>
         <!-- NOTE: These two versions are maintained separately due to decoupling jackson and databind for downstream -->
         <version.jackson>2.16.2</version.jackson>
         <version.jackson.databind>2.16.2</version.jackson.databind>
@@ -125,7 +125,7 @@
 
         <!-- Quarkus -->
         <!-- Version used for Outbox extension development, changes frequently to align with latest Quarkus -->
-        <quarkus.version.extension>3.23.4</quarkus.version.extension>
+        <quarkus.version.extension>3.25.4</quarkus.version.extension>
 
         <!-- Version used in Debezium Server, Operator, etc., usually a LTS version -->
         <!-- Must be aligned with Apicurio version below -->
@@ -177,10 +177,10 @@
         <version.rocketmq>5.2.0</version.rocketmq>
 
         <!-- OpenTelemetry version to use for the attached test agent-->
-        <version.opentelemetry.testing>2.10.0</version.opentelemetry.testing>
+        <version.opentelemetry.testing>2.10.0-alpha</version.opentelemetry.testing>
 
         <!-- Testing -->
-        <opentelemetry.agent.for.testing.artifact.relative.path>/io/opentelemetry/javaagent/opentelemetry-agent-for-testing/${version.opentelemetry.testing}-alpha/opentelemetry-agent-for-testing-${version.opentelemetry.testing}-alpha.jar</opentelemetry.agent.for.testing.artifact.relative.path>
+        <opentelemetry.agent.for.testing.artifact.relative.path>io/opentelemetry/javaagent/opentelemetry-agent-for-testing/${version.opentelemetry.testing}/opentelemetry-agent-for-testing-${version.opentelemetry.testing}.jar</opentelemetry.agent.for.testing.artifact.relative.path>
 
         <!-- Publishing -->
         <publish.snapshot.url>https://central.sonatype.com/repository/maven-snapshots/</publish.snapshot.url>
@@ -191,6 +191,8 @@
         <publish.poll.interval>30</publish.poll.interval>
         <!-- For credentials -->
         <publish.repository.id>central</publish.repository.id>
+
+        <version.mockito>5.17.0</version.mockito>
     </properties>
 
     <modules>

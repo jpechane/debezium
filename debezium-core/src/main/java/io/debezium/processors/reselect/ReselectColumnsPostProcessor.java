@@ -32,6 +32,8 @@ import io.debezium.config.Field;
 import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.data.Envelope;
 import io.debezium.data.Json;
+import io.debezium.data.SpecialValueDecimal;
+import io.debezium.data.VariableScaleDecimal;
 import io.debezium.function.Predicates;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.processors.spi.PostProcessor;
@@ -42,6 +44,7 @@ import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.ValueConverter;
 import io.debezium.relational.ValueConverterProvider;
+import io.debezium.util.ByteBuffers;
 import io.debezium.util.Strings;
 
 /**
@@ -208,13 +211,13 @@ public class ReselectColumnsPostProcessor implements PostProcessor, BeanRegistry
         if (reselectUseEventKeyFields) {
             for (org.apache.kafka.connect.data.Field field : key.schema().fields()) {
                 keyColumns.add(field.name());
-                keyValues.add(key.get(field));
+                keyValues.add(resolveKeyFieldValue(key, field));
             }
         }
         else {
             for (Column column : table.primaryKeyColumns()) {
                 keyColumns.add(column.name());
-                keyValues.add(after.get(after.schema().field(column.name())));
+                keyValues.add(resolveKeyFieldValue(after, after.schema().field(column.name())));
             }
         }
 
@@ -272,6 +275,17 @@ public class ReselectColumnsPostProcessor implements PostProcessor, BeanRegistry
         this.schema = beanRegistry.lookupByName(StandardBeanNames.DATABASE_SCHEMA, RelationalDatabaseSchema.class);
     }
 
+    private Object resolveKeyFieldValue(Struct key, org.apache.kafka.connect.data.Field field) {
+        if (field.schema() != null && VariableScaleDecimal.LOGICAL_NAME.equals(field.schema().name())) {
+            final Struct value = key.getStruct(field.name());
+            if (value != null) {
+                final SpecialValueDecimal decimal = VariableScaleDecimal.toLogical(key.getStruct(field.name()));
+                return decimal.getWrappedValue();
+            }
+        }
+        return key.get(field);
+    }
+
     private List<String> getRequiredColumnSelections(TableId tableId, Struct after) {
         final List<String> columnSelections = new ArrayList<>();
         for (org.apache.kafka.connect.data.Field field : after.schema().fields()) {
@@ -318,7 +332,13 @@ public class ReselectColumnsPostProcessor implements PostProcessor, BeanRegistry
     private boolean isUnavailableValueHolder(Schema schema, Object value) {
         switch (schema.type()) {
             case BYTES:
-                return unavailableValuePlaceholderBytes.equals(value);
+                if (value instanceof byte[] valueArray) {
+                    return ByteBuffers.equals(unavailableValuePlaceholderBytes, valueArray);
+                }
+                else if (value instanceof ByteBuffer valueBuffer) {
+                    return unavailableValuePlaceholderBytes.equals(valueBuffer);
+                }
+                return false;
             case MAP:
                 return unavailableValuePlaceholderMap.equals(value);
             case STRING:

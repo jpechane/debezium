@@ -21,17 +21,17 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import org.apache.kafka.common.security.authenticator.SaslClientAuthenticator;
 import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.apache.kafka.connect.transforms.predicates.TopicNameMatches;
 import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.debezium.connector.common.BaseSourceTask;
 import io.debezium.embedded.async.ConvertingAsyncEngineBuilderFactory;
 import io.debezium.engine.DebeziumEngine;
-import io.debezium.engine.RecordChangeEvent;
 import io.debezium.engine.spi.OffsetCommitPolicy;
 import io.debezium.pipeline.notification.channels.LogNotificationChannel;
 import io.debezium.pipeline.notification.channels.SinkNotificationChannel;
@@ -74,10 +74,14 @@ import io.quarkus.debezium.deployment.items.DebeziumGeneratedPostProcessorBuildI
 import io.quarkus.debezium.deployment.items.DebeziumMediatorBuildItem;
 import io.quarkus.debezium.engine.DebeziumRecorder;
 import io.quarkus.debezium.engine.DefaultStateHandler;
+import io.quarkus.debezium.engine.capture.CapturingEventInvokerRegistryProducer;
 import io.quarkus.debezium.engine.capture.CapturingInvoker;
-import io.quarkus.debezium.engine.capture.CapturingSourceRecordInvokerRegistryProducer;
+import io.quarkus.debezium.engine.capture.CapturingObjectInvokerRegistryProducer;
 import io.quarkus.debezium.engine.capture.DynamicCapturingInvokerSupplier;
+import io.quarkus.debezium.engine.capture.consumer.SourceRecordEventProducer;
 import io.quarkus.debezium.engine.converter.custom.DynamicCustomConverterSupplier;
+import io.quarkus.debezium.engine.deserializer.CapturingEventDeserializerRegistryProducer;
+import io.quarkus.debezium.engine.deserializer.ObjectMapperDeserializer;
 import io.quarkus.debezium.engine.post.processing.ArcPostProcessorFactory;
 import io.quarkus.debezium.engine.post.processing.DynamicPostProcessingSupplier;
 import io.quarkus.debezium.engine.relational.converter.QuarkusCustomConverter;
@@ -91,6 +95,7 @@ import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
+import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.ExecutorBuildItem;
 import io.quarkus.deployment.builditem.GeneratedClassBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
@@ -101,6 +106,8 @@ import io.quarkus.deployment.pkg.steps.NativeOrNativeSourcesBuild;
 import io.quarkus.deployment.recording.RecorderContext;
 
 public class EngineProcessor {
+
+    private final Logger logger = LoggerFactory.getLogger(EngineProcessor.class);
 
     @BuildStep
     void engine(BuildProducer<AdditionalBeanBuildItem> additionalBeanProducer,
@@ -116,7 +123,24 @@ public class EngineProcessor {
 
         additionalBeanProducer.produce(AdditionalBeanBuildItem
                 .builder()
-                .addBeanClasses(CapturingSourceRecordInvokerRegistryProducer.class)
+                .addBeanClasses(CapturingEventDeserializerRegistryProducer.class)
+                .setDefaultScope(DotNames.APPLICATION_SCOPED)
+                .setUnremovable()
+                .build());
+
+        additionalBeanProducer.produce(AdditionalBeanBuildItem
+                .builder()
+                .addBeanClasses(
+                        CapturingEventInvokerRegistryProducer.class,
+                        CapturingObjectInvokerRegistryProducer.class)
+                .setDefaultScope(DotNames.APPLICATION_SCOPED)
+                .setUnremovable()
+                .build());
+
+        additionalBeanProducer.produce(AdditionalBeanBuildItem
+                .builder()
+                .addBeanClasses(
+                        SourceRecordEventProducer.class)
                 .setDefaultScope(DotNames.APPLICATION_SCOPED)
                 .setUnremovable()
                 .build());
@@ -171,6 +195,7 @@ public class EngineProcessor {
 
     @BuildStep(onlyIf = NativeOrNativeSourcesBuild.class)
     void registerClassesThatAreLoadedThroughReflection(
+                                                       CombinedIndexBuildItem indexBuildItem,
                                                        BuildProducer<ReflectiveClassBuildItem> reflectiveClasses,
                                                        DebeziumEngineConfiguration debeziumEngineConfiguration) {
 
@@ -201,6 +226,23 @@ public class EngineProcessor {
                         .builder(postProcessor)
                         .reason(getClass().getName())
                         .build()));
+
+        extractClassToDeserialize(indexBuildItem)
+                .forEach(clazz -> reflectiveClasses.produce(
+                        ReflectiveClassBuildItem
+                                .builder(clazz.asClassType().toString())
+                                .reason(getClass().getName())
+                                .constructors(true)
+                                .methods(true)
+                                .fields(true)
+                                .build()));
+
+        extractDeserializers(debeziumEngineConfiguration)
+                .forEach(deserializer -> reflectiveClasses.produce(
+                        ReflectiveClassBuildItem
+                                .builder(deserializer)
+                                .reason(getClass().getName())
+                                .build()));
 
         reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
                 ArcHeartbeatFactory.class,
@@ -242,6 +284,26 @@ public class EngineProcessor {
                 .build());
     }
 
+    private List<Type> extractClassToDeserialize(CombinedIndexBuildItem indexBuildItem) {
+        return indexBuildItem
+                .getIndex()
+                .getAllKnownSubclasses(DotName.createSimple(ObjectMapperDeserializer.class))
+                .stream()
+                .flatMap(clazz -> clazz.superClassType().asParameterizedType().arguments().stream())
+                .toList();
+    }
+
+    private List<String> extractDeserializers(DebeziumEngineConfiguration debeziumEngineConfiguration) {
+        return debeziumEngineConfiguration
+                .capturing()
+                .values()
+                .stream()
+                .filter(capturing -> capturing.destination().isPresent() && capturing.deserializer().isPresent())
+                .map(DebeziumEngineConfiguration.Capturing::deserializer)
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
     @BuildStep
     public void generateInvokers(List<DebeziumMediatorBuildItem> mediatorBuildItems,
                                  BuildProducer<GeneratedClassBuildItem> generatedClassBuildItemBuildProducer,
@@ -249,11 +311,15 @@ public class EngineProcessor {
                                  BuildProducer<DebeziumGeneratedInvokerBuildItem> debeziumGeneratedInvokerBuildItemBuildProducer,
                                  BuildProducer<DebeziumGeneratedCustomConverterBuildItem> debeziumGeneratedCustomConverterBuildItemBuildProducer,
                                  BuildProducer<DebeziumGeneratedPostProcessorBuildItem> debeziumGeneratedPostProcessorBuildItemmBuildProducer) {
-        InvokerGenerator invokerGenerator = new InvokerGenerator(new GeneratedClassGizmoAdaptor(generatedClassBuildItemBuildProducer,
-                true));
+        GeneratedClassGizmoAdaptor classOutput = new GeneratedClassGizmoAdaptor(generatedClassBuildItemBuildProducer,
+                true);
 
-        PostProcessorGenerator postProcessorGenerator = new PostProcessorGenerator(new GeneratedClassGizmoAdaptor(generatedClassBuildItemBuildProducer, true));
-        CustomConverterGenerator customConverterGenerator = new CustomConverterGenerator(new GeneratedClassGizmoAdaptor(generatedClassBuildItemBuildProducer, true));
+        CapturingInvokerGenerator capturingInvokerGenerator = new MultipleCapturingInvokerGenerators(
+                new CapturingEventGenerator(classOutput),
+                new CapturingObjectInvokerGenerator(classOutput));
+
+        PostProcessorGenerator postProcessorGenerator = new PostProcessorGenerator(classOutput);
+        CustomConverterGenerator customConverterGenerator = new CustomConverterGenerator(classOutput);
 
         Map<Type, DebeziumMediatorBuildItem> fieldFilterStrategyByClassName = mediatorBuildItems.stream()
                 .filter(item -> item.getDotName().equals(DebeziumDotNames.FIELD_FILTER_STRATEGY))
@@ -261,10 +327,10 @@ public class EngineProcessor {
 
         mediatorBuildItems.forEach(item -> {
             if (item.getDotName().equals(DebeziumDotNames.CAPTURING)) {
-                GeneratedClassMetaData metadata = invokerGenerator.generate(item.getMethodInfo(),
+                GeneratedClassMetaData metadata = capturingInvokerGenerator.generate(item.getMethodInfo(),
                         item.getBean());
                 debeziumGeneratedInvokerBuildItemBuildProducer.produce(new DebeziumGeneratedInvokerBuildItem(metadata.generatedClassName(),
-                        metadata.mediator(), metadata.getShortIdentifier()));
+                        metadata.mediator(), metadata.getShortIdentifier(), metadata.clazz()));
                 reflectiveClassBuildItemBuildProducer.produce(ReflectiveClassBuildItem.builder(metadata.generatedClassName()).build());
             }
 
@@ -307,13 +373,13 @@ public class EngineProcessor {
                                List<DebeziumGeneratedInvokerBuildItem> debeziumGeneratedInvokerBuildItems,
                                BuildProducer<SyntheticBeanBuildItem> syntheticBeanBuildItemBuildProducer) {
         debeziumGeneratedInvokerBuildItems.forEach(item -> syntheticBeanBuildItemBuildProducer.produce(
-                SyntheticBeanBuildItem.configure(CapturingInvoker.class)
+                SyntheticBeanBuildItem.configure(item.getClazz())
                         .setRuntimeInit()
                         .scope(ApplicationScoped.class)
                         .unremovable()
                         .supplier(dynamicCapturingInvokerSupplier.createInvoker(
                                 recorderContext.classProxy(item.getMediator().getImplClazz().name().toString()),
-                                (Class<? extends CapturingInvoker<RecordChangeEvent<SourceRecord>>>) recorderContext.classProxy(item.getGeneratedClassName())))
+                                (Class<? extends CapturingInvoker<?>>) recorderContext.classProxy(item.getGeneratedClassName())))
                         .named(DynamicCapturingInvokerSupplier.BASE_NAME + item.getMediator().getImplClazz().name() + item.getId())
                         .done()));
     }

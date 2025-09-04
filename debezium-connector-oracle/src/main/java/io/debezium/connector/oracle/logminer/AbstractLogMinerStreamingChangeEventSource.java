@@ -802,6 +802,40 @@ public abstract class AbstractLogMinerStreamingChangeEventSource
     }
 
     /**
+     * Waits for the range if it's not completely available in the archive logs yet.
+     *
+     * @param startScn the range starting SCN number
+     * @param endScn the range ending SCN number
+     * @return {@code true} if the connector loop should break, {@code false} otherwise
+     * @throws SQLException if a database exception occurs
+     * @throws InterruptedException if the thread is interrupted
+     */
+    protected boolean waitForRangeAvailabilityInArchiveLogs(Scn startScn, Scn endScn) throws SQLException, InterruptedException {
+        if (endScn.isNull()) {
+            // There was no prior iteration yet, sanity check to verify starting SCN
+            if (isArchiveLogOnlyModeAndScnIsNotAvailable(startScn)) {
+                LOGGER.error("Could not find the start SCN {} in the archive logs, stopping connector.", startScn);
+                return true;
+            }
+        }
+        else if (isNoDataProcessedInBatchAndAtEndOfArchiveLogs()) {
+            if (endScn.compareTo(getMaximumArchiveLogsScn()) == 0) {
+                // Prior iteration mined up to the last entry in the archive logs and no data was returned.
+                return isArchiveLogOnlyModeAndScnIsNotAvailable(endScn.add(Scn.ONE));
+            }
+            // The endScn + 1 is now available
+        }
+
+        // Connector loop should continue to iterate
+        return false;
+    }
+
+    /**
+     * @return {@code true} if no data was processed, and we've reached end of the archive logs, {@code false} otherwise.
+     */
+    protected abstract boolean isNoDataProcessedInBatchAndAtEndOfArchiveLogs();
+
+    /**
      * Calculates the mining session's upper boundary based on batch size limits.
      *
      * @param lowerBoundsScn the current lower boundary
@@ -913,7 +947,8 @@ public abstract class AbstractLogMinerStreamingChangeEventSource
             // LogMiner takes the range we provide and subtracts 1 from the start and adds 1 to the upper bounds
             // to create a non-inclusive range from our inclusive range. If we supply the last flushed SCN, the
             // non-inclusive range will specify an SCN beyond what is in the logs, leading to LogMiner failure.
-            minOpenRedoThreadLastScn = minOpenRedoThreadLastScn.subtract(Scn.ONE);
+            minOpenRedoThreadLastScn = minOpenRedoThreadLastScn.subtract(
+                    Scn.valueOf(connectorConfig.getLogMiningRedoThreadScnAdjustment()));
 
             if (minOpenRedoThreadLastScn.compareTo(result) < 0) {
                 // There are situations where on first start-up that the startScn may be higher
@@ -1145,6 +1180,15 @@ public abstract class AbstractLogMinerStreamingChangeEventSource
      */
     protected boolean startMiningSession(Scn startScn, Scn endScn, int attempts) throws SQLException {
         try {
+
+            if (connectorConfig.isArchiveLogOnlyMode()) {
+                final Scn newEndScn = getMinNextScnAcrossAllThreadMaxNextScnValues();
+                if (!newEndScn.equals(endScn)) {
+                    LOGGER.debug("Adjusted archive log only mode upper bounds from {} to {}.", endScn, newEndScn);
+                    endScn = newEndScn;
+                }
+            }
+
             LOGGER.debug("Starting mining session [startScn={}, endScn={}, strategy={}, attempts={}/{}]",
                     startScn, endScn, connectorConfig.getLogMiningStrategy(), attempts, MINING_START_RETRIES);
 
@@ -2123,5 +2167,18 @@ public abstract class AbstractLogMinerStreamingChangeEventSource
                 .snapshotPendingTransactions(Collections.emptyMap())
                 .transactionContext(new TransactionContext())
                 .incrementalSnapshotContext(new SignalBasedIncrementalSnapshotContext<>()).build();
+    }
+
+    private Scn getMinNextScnAcrossAllThreadMaxNextScnValues() {
+        return getCurrentLogFiles().stream()
+                .filter(LogFile::isArchive)
+                .collect(Collectors.groupingBy(
+                        LogFile::getThread,
+                        Collectors.mapping(LogFile::getNextScn, Collectors.maxBy(Scn::compareTo))))
+                .values()
+                .stream()
+                .flatMap(Optional::stream)
+                .min(Scn::compareTo)
+                .orElseThrow(() -> new DebeziumException("Failed to resolve archive logs upper bounds"));
     }
 }

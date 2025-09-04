@@ -111,8 +111,10 @@ public class BufferedLogMinerStreamingChangeEventSource extends AbstractLogMiner
             while (getContext().isRunning()) {
 
                 // Check if we should break when using archive log only mode
-                if (isArchiveLogOnlyModeAndScnIsNotAvailable(startScn)) {
-                    break;
+                if (getConfig().isArchiveLogOnlyMode()) {
+                    if (waitForRangeAvailabilityInArchiveLogs(startScn, endScn)) {
+                        break;
+                    }
                 }
 
                 final Instant batchStartTime = Instant.now();
@@ -125,14 +127,6 @@ public class BufferedLogMinerStreamingChangeEventSource extends AbstractLogMiner
                 endScn = calculateUpperBounds(startScn, endScn, currentScn);
                 if (endScn.isNull()) {
                     LOGGER.debug("Requested delay of mining by one iteration");
-                    pauseBetweenMiningSessions();
-                    continue;
-                }
-
-                // This is a small window where when archive log only mode has completely caught up to the last
-                // record in the archive logs that both the lower and upper values are identical. In this use
-                // case we want to pause and restart the loop waiting for a new archive log before proceeding.
-                if (getConfig().isArchiveLogOnlyMode() && startScn.equals(endScn)) {
                     pauseBetweenMiningSessions();
                     continue;
                 }
@@ -601,6 +595,11 @@ public class BufferedLogMinerStreamingChangeEventSource extends AbstractLogMiner
         }
         // It should not exist in this cache, but in case.
         getTransactionCache().removeAbandonedTransaction(transactionId);
+    }
+
+    @Override
+    protected boolean isNoDataProcessedInBatchAndAtEndOfArchiveLogs() {
+        return !getMetrics().getBatchMetrics().hasJdbcRows();
     }
 
     /**

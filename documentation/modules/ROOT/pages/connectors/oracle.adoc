@@ -78,11 +78,12 @@ endif::product[]
 [[how-the-oracle-connector-works]]
 == How the Oracle connector works
 
-To optimally configure and run a {prodname} Oracle connector, it is helpful to understand how the connector performs snapshots, streams change events, determines Kafka topic names, uses metadata, and implements event buffering.
+To optimally configure and run a {prodname} Oracle connector, it is helpful to understand how the connector works.
 
 ifdef::product[]
 For more information, see the following topics:
 
+* xref:descriptions-of-debezium-oracle-connector-adapters[]
 * xref:how-debezium-oracle-connectors-perform-database-snapshots[]
 * xref:debezium-oracle-ad-hoc-snapshots[]
 * xref:debezium-oracle-incremental-snapshots[]
@@ -92,6 +93,81 @@ For more information, see the following topics:
 * xref:how-the-debezium-oracle-connector-uses-event-buffering[]
 
 endif::product[]
+
+// Type: concept
+// ModuleID: descriptions-of-debezium-oracle-connector-adapters
+// Title: Descriptions of {prodname} Oracle connector adapters
+[[oracle-adapter-modes]]
+== Adapter Modes
+
+The {prodname} Oracle connector supports multiple adapters for capturing changes from the Oracle database transaction logs.
+You can configure the connector to use a specific adapter by setting the xref:oracle-property-database-connection-adapter[`database.connection.adapter`] configuration property.
+
+The connector supports the following adapters:
+
+LogMiner::
+
+By default, the {prodname} Oracle connector uses the native Oracle LogMiner API to read and stream changes from database transaction logs.
+You can configure {prodname} to use LogMiner in either of the following distinct modes:
+
+Uncommitted changes mode:::
+
+In uncommitted changes mode, the {prodname} Oracle connector receives a continuous stream of change events for both committed and in-flight uncommitted transactions.
+Because Oracle interleaves operations from multiple transactions, the connector must buffer events until a corresponding commit or rollback is detected.
++
+Because this the default mode for the connector, it's important to allocate enough memory to the connector to handle the largest transactions and highest concurrency levels across all captured tables.
++
+Uncommitted changes mode minimizes the load on the source database by delegating most processing to the connector.
+Oracle LogMiner is responsible only for reading redo and archive logs from disk and streaming the raw changes.
++
+Enable this mode by setting the xref:oracle-property-database-connection-adapter[`database.connection.adapter`] property to `logminer` (default).
+
+Committed changes mode:::
+
+In committed changes mode, the {prodname} Oracle connector instructs Oracle LogMiner to stream only committed changes.
+Because the connector receives only committed events, it can immediately forward them to destination topics without maintaining an internal transaction buffer.
++
+This mode requires significantly less connector memory, but shifts a much greater processing and memory burden to the source database.
+For large transactions, this can easily exceed the database’s available PGA memory, potentially leading to `PGA_AGGREGATE_LIMIT` errors.
++
+This mode is recommended only if you can guarantee that all transactions fit within the database’s PGA memory space.
+Otherwise, use the uncommitted changes mode.
++
+Enable this mode by setting the xref:oracle-property-database-connection-adapter[`database.connection.adapter`] property to `logminer_unbuffered`.
+ifdef::community[]
++
+[NOTE]
+====
+This feature is currently *incubating* and might change in future releases.
+====
+endif::community[]
+ifdef::product[]
++
+[IMPORTANT]
+====
+The Committed changes mode setting is a Technology Preview feature.
+Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete.
+Red Hat does not recommend using them in production.
+These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.
+For more information about the support scope of Red Hat Technology Preview features, see link:https://access.redhat.com/support/offerings/techpreview/[Technology Preview Features Support Scope].
+====
+endif::product[]
+
+ifdef::community[]
+OpenLogReplicator::
+
+You can configure the {prodname} Oracle connector to use OpenLogReplicator, an open-source application that reads Oracle changes directly from the redo and archive logs with minimal impact on the database.
++
+Enable OpenLogReplicator by setting the xref:oracle-property-database-connection-adapter[`database.connection.adapter`] property to `olr`.
+For more information, see the xref:oracle-openlogreplicator-support[] section.
+endif::community[]
+
+Oracle XStream::
+
+The {prodname} Oracle connector can also use Oracle XStream, a commercial component of Oracle GoldenGate.
++
+Enable Oracle XStream by setting the xref:oracle-property-database-connection-adapter[`database.connection.adapter`] property to `xstream`.
+For more details, see the xref:oracle-xstreams-support[XStream] section.
 
 // Type: concept
 // Title: How {prodname} Oracle connectors perform database snapshots
@@ -1170,8 +1246,10 @@ The schema describes the structure of the payload, while the payload contains th
 
 [WARNING]
 ====
-Changes that are performed by the `SYS` or `SYSTEM` user accounts are not captured by the connector.
+The connector can capture both DDL and DML changes that result from user-initiated or application-level operations.
+It can also capture DML changes that originate from `SYS` or `SYSTEM` accounts.
 ====
+
 ifdef::product[]
 The following topics contain more details about data change events:
 
@@ -2567,23 +2645,41 @@ If your Oracle environment includes multiple destinations that satisfy that crit
 Because the retention policy that is configured for each destination might differ, this can lead to errors if the connector selects a path from which the requested log data was deleted.
 ====
 
-// Type: procedure
-// ModuleID: creating-an-oracle-user-for-the-debezium-oracle-connector
-// Title: Creating an Oracle user for the {prodname} Oracle connector
+// Type: concept
+// ModuleID: configuration-of-the-connectors-oracle-user-account
+// Title: Configuration of the connector's Oracle user account
 [id="creating-users-for-the-connector"]
-=== Creating users for the connector
+=== Creating a user account for the connector
 
 For the {prodname} Oracle connector to capture change events, it must run as an Oracle LogMiner user that has specific permissions.
-The following example shows the SQL for creating an Oracle user account for the connector in a multi-tenant database model.
 
-[WARNING]
+Typically, when you create the Oracle account for the connector, you grant the account a level of access that permits the connector to detect changes from all tables in the database.
+However, in some environments, security policies might prohibit you from granting such a broad level of access.
+
+// I removed the admonition that duplicates the one in the Data change events topic on L1171
+
+The following example shows the SQL for creating an Oracle user account for the connector in a multi-tenant database model.
+The grant settings in the example permit the {prodname} user to access all user tables in the database.
+
+To comply with security policies, you can modify the `SELECT ANY TABLE` and `FLASHBACK ANY TABLE` grants so that the connector can access only those tables that you intend to capture.
+
+Do not modify other grants, such as the
+ifdef::community[]
+`SELECT ANY TRANSACTION` grant, or the
+endif::community[]
+set of `SELECT ON V_$` grants, which provide access to dynamic performance views (V$).
+These grants are required for the connector to function.
+
+[IMPORTANT]
 ====
-The connector captures database changes that are made by its own Oracle user account.
-However, it does not capture changes that are made by the `SYS` or `SYSTEM` user accounts.
+To prevent data loss, if you restrict the scope of the `SELECT` and `FLASHBACK` grants, be sure that the modified scope is compatible with the settings in the connector's `include` configuration.
+The privileges that you set for the account must permit reading from all of the tables that you want the connector to capture.
 ====
+
 
 [[oracle-create-users-logminer]]
 .Creating the connector's LogMiner user
+====
 [source,sql,indent=0]
 ----
 sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
@@ -2635,6 +2731,7 @@ sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
 
   exit;
 ----
+====
 
 .Descriptions of permissions / grants
 [cols="1,4,5",options="header"]
@@ -2674,9 +2771,17 @@ Optionally, rather than granting `SELECT` permission on all tables, you can gran
 
 |8
 |SELECT ANY TRANSACTION
-|Enables the snapshot process to perform a Flashback snapshot query against any transaction.
+|Enables the snapshot process to perform a Flashback snapshot query against any transaction so that the connector can read past changes from LogMiner.
 When `FLASHBACK ANY TABLE` is granted, this should also be granted.
+ifdef::product[]
+Setting this grant is optional.
+The connector obtains the required privileges through the `EXECUTE_CATALOG_ROLE` and `LOGMINING` grants.
+endif::product[]
+ifdef::community[]
+This grant is optional for Oracle 12c and later.
 
+In those later releases, the connector obtains the required privileges through the `EXECUTE_CATALOG_ROLE` and `LOGMINING` grants.
+endif::community[]
 |9
 |LOGMINING
 |This role was added in newer versions of Oracle as a way to grant full access to Oracle LogMiner and its
@@ -3365,15 +3470,15 @@ Unlike the `database.host` property, the `database.url` property permits you to 
 ==== Oracle Wallet
 
 .Prerequisites
-* Verify Oracle Wallet is configured on the Oracle database server with your database administrators
-* Locate the `oraclepki.jar` inside the Oracle JDBC driver archive
+* Verify with your database administrators that Oracle Wallet is configured on the Oracle database server.
+* Locate the `oraclepki.jar` inside the Oracle JDBC driver archive.
 
 .Procedure
-* Install `oraclepki.jar` in the same location where ${prodname} Debezium Oracle connector jars exist.
-If you have downloaded and installed the Oracle JDBC driver, the same location is where you would also place `oraclepki.jar`.
-* Use the `database.url` configuration property rather than `database.hostname` to configure the connector.
-By using `database.url`, a TNS-based configuration is provided to interact with Oracle Wallet.
-A sample configuration is shown below.
+* Install `oraclepki.jar` in the location that contains the {prodname} Oracle connector JAR files.
+This is the same location to which you install the Oracle JDBC driver.
+* In the connector configuration, set the `database.url` property, rather than `database.hostname` property, to specify how {prodname} connects to the database.
+The `database.url` property defines an Oracle TNS-based connection string that is required to interact with Oracle Wallet.
+For an example of a TNS connection string, see the sample mTLS configuration that appears after this list.
 * Set the Oracle JDBC driver property `oracle.net.wallet_location` to explicitly set the Oracle Wallet configuration to be used by the Oracle JDBC driver.
 
 .Example mTLS configuration
@@ -3513,7 +3618,8 @@ The connector is also unable to recover its database schema history topic.
 |The adapter implementation that the connector uses when it streams database changes.
 You can set the following values:
 
-`logminer` (default):: The connector uses the native Oracle LogMiner API.
+`logminer` (default):: The connector uses the native Oracle LogMiner API with connector-level buffering.
+`logminer_unbuffered`:: The connector uses the native Oracle LogMiner API with database-level buffering.
 ifdef::community[]
 `olr`:: The connector uses OpenLogReplicator.
 endif::community[]
@@ -5317,7 +5423,7 @@ exit;
 ----
 
 In addition, supplemental logging must be enabled for captured tables or the database in order for data changes to capture the _before_ state of changed database rows.
-The following illustrates how to configure this on a specific table, which is the ideal choice to minimize the amount of information captured in the Oracle redo logs.
+The following example illustrates how to configure this on a specific table, which is the ideal choice to minimize the amount of information captured in the Oracle redo logs.
 
 [source,indent=0]
 ----
@@ -5338,6 +5444,7 @@ The following examples provide information about how to create user configuratio
 // Title: Creating an XStream administrator for the {prodname} Oracle connector
 [[oracle-create-users-xstream]]
 ==== Creating an XStream Administrator user
+
 [source,indent=0]
 ----
 sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
@@ -5375,6 +5482,7 @@ sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba
 // ModuleID: creating-an-xstream-user-for-the-debezium-oracle-connector
 // Title: Creating an XStream user for the {prodname} Oracle connector
 ==== Creating the connector's XStream user
+
 [source,indent=0]
 ----
 sqlplus sys/top_secret@//localhost:1521/ORCLCDB as sysdba

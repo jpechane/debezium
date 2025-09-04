@@ -68,9 +68,8 @@
         <version.junit5>5.9.1</version.junit5>
         <version.junit.platform.launcher>1.9.3</version.junit.platform.launcher>
         <version.fest>1.4</version.fest>
-        <version.assertj>3.27.3</version.assertj>
+        <version.assertj>3.27.4</version.assertj>
         <version.jmh>1.21</version.jmh>
-        <version.mockito>5.17.0</version.mockito>
         <version.awaitility>4.0.1</version.awaitility>
         <version.testcontainers>1.20.6</version.testcontainers>
         <version.jsonpath>2.9.0</version.jsonpath>
@@ -623,6 +622,11 @@
                 <version>${version.junit5}</version>
             </dependency>
             <dependency>
+                <groupId>org.junit.vintage</groupId>
+                <artifactId>junit-vintage-engine</artifactId>
+                <version>${version.junit5}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.junit.platform</groupId>
                 <artifactId>junit-platform-launcher</artifactId>
                 <version>${version.junit.platform.launcher}</version>
@@ -693,13 +697,13 @@
             <dependency>
                 <groupId>io.opentelemetry.javaagent</groupId>
                 <artifactId>opentelemetry-testing-common</artifactId>
-                <version>${version.opentelemetry.testing}-alpha</version>
+                <version>${version.opentelemetry.testing}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>io.opentelemetry.javaagent</groupId>
                 <artifactId>opentelemetry-agent-for-testing</artifactId>
-                <version>${version.opentelemetry.testing}-alpha</version>
+                <version>${version.opentelemetry.testing}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -861,6 +865,11 @@
             <dependency>
                 <groupId>io.debezium</groupId>
                 <artifactId>debezium-connector-ibmi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-connector-cockroachdb</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -9,6 +9,7 @@ import static io.debezium.connector.mongodb.MongoDbSchema.UPDATED_DESCRIPTION_SC
 import static org.apache.kafka.connect.transforms.util.Requirements.requireStruct;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
@@ -39,6 +40,7 @@ import io.debezium.data.Json;
 import io.debezium.data.VerifyRecord;
 import io.debezium.pipeline.txmetadata.TransactionMonitor;
 import io.debezium.transforms.outbox.EventRouterConfigDefinition;
+import io.debezium.transforms.tracing.ActivateTracingSpan;
 
 /**
  * Unit tests for {@link MongoEventRouter}
@@ -967,4 +969,125 @@ public class MongoEventRouterTest {
         final Struct body = envelope.create(after, null, Instant.now());
         return new SourceRecord(new HashMap<>(), new HashMap<>(), "db.outbox", envelope.schema(), body);
     }
+
+    protected ActivateTracingSpan<SourceRecord> getTracingSmt() throws NoSuchFieldException, IllegalAccessException {
+        // Access the 'tracingSmt' field inside the delegate
+        Field tracingField = router.getEventRouterDelegate().getClass().getDeclaredField("tracingSmt");
+        tracingField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActivateTracingSpan<SourceRecord> tracingSmt = (ActivateTracingSpan<SourceRecord>) tracingField
+                .get(router.getEventRouterDelegate());
+        return tracingSmt;
+    }
+
+    @Test
+    public void tracingCustomConfigParsing() throws Exception {
+        final Map<String, String> config = new HashMap<>();
+        config.put(ActivateTracingSpan.TRACING_SPAN_CONTEXT_FIELD.name(), "myField");
+        config.put(ActivateTracingSpan.TRACING_CONTEXT_FIELD_REQUIRED.name(), "false");
+        config.put(ActivateTracingSpan.TRACING_OPERATION_NAME.name(), "customOperation");
+        router.configure(config);
+
+        final var tracingSmt = getTracingSmt();
+
+        Field spanContextField = tracingSmt.getClass().getDeclaredField("spanContextField");
+        spanContextField.setAccessible(true);
+        String actualSpanContextValue = (String) spanContextField.get(tracingSmt);
+
+        Field operationNameField = tracingSmt.getClass().getDeclaredField("operationName");
+        operationNameField.setAccessible(true);
+        String actualOperationNameValue = (String) operationNameField.get(tracingSmt);
+
+        Field requireContextField = tracingSmt.getClass().getDeclaredField("requireContextField");
+        requireContextField.setAccessible(true);
+        boolean actualRequireContextValue = (boolean) requireContextField.get(tracingSmt);
+
+        assertThat(actualSpanContextValue).isEqualTo("myField");
+        assertThat(actualRequireContextValue).isEqualTo(false);
+        assertThat(actualOperationNameValue).isEqualTo("customOperation");
+
+    }
+
+    @Test
+    public void tracingCustomConfigParsing_default_TRACING_SPAN_CONTEXT_FIELD() throws Exception {
+        final Map<String, String> config = new HashMap<>();
+        config.put(ActivateTracingSpan.TRACING_CONTEXT_FIELD_REQUIRED.name(), "true");
+        config.put(ActivateTracingSpan.TRACING_OPERATION_NAME.name(), "customOperation");
+        router.configure(config);
+
+        final var tracingSmt = getTracingSmt();
+
+        Field spanContextField = tracingSmt.getClass().getDeclaredField("spanContextField");
+        spanContextField.setAccessible(true);
+        String actualSpanContextValue = (String) spanContextField.get(tracingSmt);
+
+        Field operationNameField = tracingSmt.getClass().getDeclaredField("operationName");
+        operationNameField.setAccessible(true);
+        String actualOperationNameValue = (String) operationNameField.get(tracingSmt);
+
+        Field requireContextField = tracingSmt.getClass().getDeclaredField("requireContextField");
+        requireContextField.setAccessible(true);
+        boolean actualRequireContextValue = (boolean) requireContextField.get(tracingSmt);
+
+        assertThat(actualSpanContextValue).isEqualTo(ActivateTracingSpan.DEFAULT_TRACING_SPAN_CONTEXT_FIELD);
+        assertThat(actualRequireContextValue).isEqualTo(true);
+        assertThat(actualOperationNameValue).isEqualTo("customOperation");
+
+    }
+
+    @Test
+    public void tracingCustomConfigParsing_default_TRACING_CONTEXT_FIELD_REQUIRED() throws Exception {
+        final Map<String, String> config = new HashMap<>();
+        config.put(ActivateTracingSpan.TRACING_SPAN_CONTEXT_FIELD.name(), "myField");
+        config.put(ActivateTracingSpan.TRACING_OPERATION_NAME.name(), "customOperation");
+        router.configure(config);
+
+        final var tracingSmt = getTracingSmt();
+
+        Field spanContextField = tracingSmt.getClass().getDeclaredField("spanContextField");
+        spanContextField.setAccessible(true);
+        String actualSpanContextValue = (String) spanContextField.get(tracingSmt);
+
+        Field operationNameField = tracingSmt.getClass().getDeclaredField("operationName");
+        operationNameField.setAccessible(true);
+        String actualOperationNameValue = (String) operationNameField.get(tracingSmt);
+
+        Field requireContextField = tracingSmt.getClass().getDeclaredField("requireContextField");
+        requireContextField.setAccessible(true);
+        boolean actualRequireContextValue = (boolean) requireContextField.get(tracingSmt);
+
+        assertThat(actualSpanContextValue).isEqualTo("myField");
+        assertThat(actualRequireContextValue).isEqualTo(true);
+        assertThat(actualOperationNameValue).isEqualTo("customOperation");
+
+    }
+
+    @Test
+    public void tracingCustomConfigParsing_default_TRACING_OPERATION_NAME() throws Exception {
+        final Map<String, String> config = new HashMap<>();
+        config.put(ActivateTracingSpan.TRACING_SPAN_CONTEXT_FIELD.name(), "myField");
+        config.put(ActivateTracingSpan.TRACING_CONTEXT_FIELD_REQUIRED.name(), "false");
+        router.configure(config);
+
+        final var tracingSmt = getTracingSmt();
+
+        Field spanContextField = tracingSmt.getClass().getDeclaredField("spanContextField");
+        spanContextField.setAccessible(true);
+        String actualSpanContextValue = (String) spanContextField.get(tracingSmt);
+
+        Field operationNameField = tracingSmt.getClass().getDeclaredField("operationName");
+        operationNameField.setAccessible(true);
+        String actualOperationNameValue = (String) operationNameField.get(tracingSmt);
+
+        Field requireContextField = tracingSmt.getClass().getDeclaredField("requireContextField");
+        requireContextField.setAccessible(true);
+        boolean actualRequireContextValue = (boolean) requireContextField.get(tracingSmt);
+
+        assertThat(actualSpanContextValue).isEqualTo("myField");
+        assertThat(actualRequireContextValue).isEqualTo(false);
+        assertThat(actualOperationNameValue).isEqualTo("debezium-read");
+
+    }
+
 }
