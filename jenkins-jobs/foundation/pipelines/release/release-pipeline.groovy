@@ -14,6 +14,7 @@ properties([
         string(name: 'IMAGES_BRANCH'),
         string(name: 'POSTGRES_DECODER_REPOSITORY'),
         string(name: 'POSTGRES_DECODER_BRANCH'),
+        string(name: 'ZULIP_TO'),
         booleanParam(name: 'FROM_SCRATCH'),
         booleanParam(name: 'IGNORE_SNAPSHOTS'),
         booleanParam(name: 'CHECK_BACKPORTS')
@@ -109,6 +110,8 @@ properties([
 
 @Field STAGING_REPO = ''
 
+@Field ZULIP_TO
+
 def executeShell(directory, script) {
     def evaluatedScript = ""
     dir(directory) {
@@ -120,7 +123,9 @@ def executeShell(directory, script) {
                 'GITHUB_USERNAME': GITHUB_USERNAME,
                 'GITHUB_PASSWORD': GITHUB_PASSWORD,
                 'MAVEN_USERNAME': MAVEN_USERNAME,
-                'MAVEN_TOKEN': MAVEN_TOKEN
+                'MAVEN_TOKEN': MAVEN_TOKEN,
+                'ZULIPBOT_USERNAME': ZULIPBOT_USERNAME,
+                'ZULIPBOT_TOKEN': ZULIPBOT_TOKEN
             ]
             evaluatedScript = engine.createTemplate(script).make(binding).toString()
             echo evaluatedScript
@@ -130,9 +135,13 @@ def executeShell(directory, script) {
 }
 
 def sendZulipNotification(message) {
+    if (!ZULIP_TO) {
+        return
+    }
+
     executeShell('.',
 """
-    curl -sSf -u "\$ZULIPBOT_USERNAME:$ZULIPBOT_TOKEN" \
+    curl -sSf -u "\$ZULIPBOT_USERNAME:\$ZULIPBOT_TOKEN" \
       --data-urlencode type=private \
       --data-urlencode 'to=[$ZULIP_TO]' \
       --data-urlencode content="$message" \
@@ -519,6 +528,7 @@ IMAGES_BRANCH = params.IMAGES_BRANCH
 IMAGES_REPOSITORY = params.IMAGES_REPOSITORY
 POSTGRES_DECODER_BRANCH = params.POSTGRES_DECODER_BRANCH
 POSTGRES_DECODER_REPOSITORY = params.POSTGRES_DECODER_REPOSITORY
+ZULIP_TO = params.ZULIP_TO
 
 VERSION_TAG = "v$RELEASE_VERSION"
 VERSION_PARTS = RELEASE_VERSION.split('\\.')
@@ -553,10 +563,10 @@ SOURCE_REPOSITORIES.split().each { item ->
     }
 }
 
-sendZulipNotification("Starting build of Debezium $RELEASE_VERSION")
-
 node {
     catchError {
+        sendZulipNotification("Starting build of Debezium $RELEASE_VERSION ($BUILD_URL)")
+
         stage('Validate parameters') {
             common.validateVersionFormat(RELEASE_VERSION)
 
@@ -699,7 +709,7 @@ EOF''')
             if (shouldSkip) {
                 return
             }
-            echo "Preparing release for $id"
+            echo 'Executing smoke test'
             sh "git checkout -b $CANDIDATE_BRANCH"
 
 
@@ -822,5 +832,5 @@ EOF''')
         }
     }
 
- //   mail to: MAIL_TO, subject: "${JOB_NAME} run #${BUILD_NUMBER} finished with ${currentBuild.currentResult}", body: "Run ${BUILD_URL} finished with result: ${currentBuild.currentResult}"
+    sendZulipNotification("Build of Debezium $RELEASE_VERSION finished with ${currentBuild.currentResult} ($BUILD_URL)")
 }
