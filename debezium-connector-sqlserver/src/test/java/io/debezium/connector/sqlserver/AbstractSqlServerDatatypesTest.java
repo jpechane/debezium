@@ -104,6 +104,18 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
             "  primary key (id)" +
             ")";
 
+    private static final String DDL_CUSTOM_TYPE_DECLARE = """
+            CREATE TYPE email FROM NVARCHAR(20) NOT NULL;
+            """;
+
+    private static final String DDL_CUSTOM_TYPE = """
+            create table type_custom (
+                id int not null,
+                email email,
+                primary key (id)
+                );
+            """;
+
     private static final List<SchemaAndValueField> EXPECTED_INT = Arrays.asList(
             new SchemaAndValueField("val_bit", Schema.OPTIONAL_BOOLEAN_SCHEMA, true),
             new SchemaAndValueField("val_tinyint", Schema.OPTIONAL_INT16_SCHEMA, (short) 22),
@@ -171,12 +183,16 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
     private static final List<SchemaAndValueField> EXPECTED_XML = Arrays.asList(
             new SchemaAndValueField("val_xml", Schema.OPTIONAL_STRING_SCHEMA, "<a>b</a>"));
 
+    private static final List<SchemaAndValueField> EXPECTED_CUSTOM = Arrays.asList(
+            new SchemaAndValueField("email", Schema.STRING_SCHEMA, "debezium@debezium.io"));
+
     private static final String[] ALL_TABLES = {
             "type_int",
             "type_fp",
             "type_string",
             "type_time",
-            "type_xml"
+            "type_xml",
+            "type_custom"
     };
 
     private static final String[] ALL_DDLS = {
@@ -184,7 +200,9 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
             DDL_FP,
             DDL_STRING,
             DDL_TIME,
-            DDL_XML
+            DDL_XML,
+            DDL_CUSTOM_TYPE_DECLARE,
+            DDL_CUSTOM_TYPE
     };
 
     private boolean useSnapshot = true;
@@ -254,6 +272,25 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
         validateRecord(testTableRecords.get(0));
         Struct after = (Struct) ((Struct) testTableRecords.get(0).value()).get("after");
         assertRecord(after, EXPECTED_STRING);
+    }
+
+    @Test
+    public void customTypes() throws Exception {
+        Testing.debug("Inserted");
+
+        if (!useSnapshot) {
+            insertCustomTypes();
+        }
+
+        final SourceRecords records = consumeRecordsByTopic(getExpectedRecordCount());
+
+        List<SourceRecord> testTableRecords = records.recordsForTopic("server1.testDB1.dbo.type_custom");
+        assertThat(testTableRecords).hasSize(1);
+
+        // insert
+        validateRecord(testTableRecords.get(0));
+        Struct after = (Struct) ((Struct) testTableRecords.get(0).value()).get("after");
+        assertRecord(after, EXPECTED_CUSTOM);
     }
 
     @Test
@@ -383,6 +420,13 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
         }
     }
 
+    protected static void insertCustomTypes() throws SQLException {
+        try (SqlServerConnection connection = TestHelper.testConnection()) {
+            connection.execute("INSERT INTO type_custom VALUES (0, 'debezium@debezium.io')");
+            TestHelper.waitForCdcRecord(connection, "type_custom", rs -> rs.getInt("id") == 0);
+        }
+    }
+
     protected static void dropAllTables() throws SQLException {
         try (SqlServerConnection connection = TestHelper.testConnection()) {
             for (String tableName : ALL_TABLES) {
@@ -392,6 +436,12 @@ public abstract class AbstractSqlServerDatatypesTest extends AbstractAsyncEngine
                 catch (SQLException e) {
                     // ignored
                 }
+            }
+            try {
+                connection.execute("DROP TYPE email");
+            }
+            catch (SQLException e) {
+                // ignored
             }
         }
     }

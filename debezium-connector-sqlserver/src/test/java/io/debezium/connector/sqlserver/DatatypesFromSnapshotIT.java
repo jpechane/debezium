@@ -31,6 +31,7 @@ public class DatatypesFromSnapshotIT extends AbstractSqlServerDatatypesTest {
         insertStringTypes();
         insertTimeTypes();
         insertXmlTypes();
+        insertCustomTypes();
     }
 
     @Before
