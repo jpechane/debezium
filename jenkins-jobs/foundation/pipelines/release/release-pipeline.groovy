@@ -17,7 +17,8 @@ properties([
         string(name: 'ZULIP_TO'),
         booleanParam(name: 'FROM_SCRATCH'),
         booleanParam(name: 'IGNORE_SNAPSHOTS'),
-        booleanParam(name: 'CHECK_BACKPORTS')
+        booleanParam(name: 'CHECK_BACKPORTS'),
+        booleanParam(name: 'LATEST_SERIES')
     ])
 ])
 
@@ -90,6 +91,7 @@ properties([
 @Field FROM_SCRATCH
 @Field IGNORE_SNAPSHOTS
 @Field CHECK_BACKPORTS
+@Field LATEST_SERIES
 
 @Field RELEASE_VERSION
 @Field DEVELOPMENT_VERSION
@@ -165,6 +167,7 @@ def buildArgsForRepo(repoDir) {
 }
 
 @Field final TEST_ARTIFACTS = [
+    'cassandra': 'debezium-connector-reactor-cassandra',
     'debezium': 'debezium-parent',
     'server': 'debezium-server',
     'operator': 'debezium-operator',
@@ -466,7 +469,7 @@ def smokeTestContainerImages() {
         sleep 10
         docker run -it -d --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets --link kafka:kafka --link mysql:mysql $DEBEZIUM_DOCKER_REGISTRY_PRIMARY_NAME/connect:$IMAGE_TAG
         sleep 60
-    
+
         curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '
         {
             "name": "inventory-connector",
@@ -498,72 +501,75 @@ def smokeTestContainerImages() {
     }
 }
 
-if (
-    !params.RELEASE_VERSION ||
-    !params.DEVELOPMENT_VERSION ||
-    !params.SOURCE_BRANCH ||
-    !params.SOURCE_REPOSITORIES ||
-    !params.IMAGES_REPOSITORY ||
-    !params.IMAGES_BRANCH ||
-    !params.POSTGRES_DECODER_REPOSITORY ||
-    !params.POSTGRES_DECODER_BRANCH
-) {
-    error 'Input parameters not provided'
-}
-
-DRY_RUN = common.getDryRun()
-FROM_SCRATCH = common.getBooleanParameter(params.FROM_SCRATCH)
-IGNORE_SNAPSHOTS = common.getBooleanParameter(params.IGNORE_SNAPSHOTS)
-CHECK_BACKPORTS = common.getBooleanParameter(params.CHECK_BACKPORTS)
-
-echo "Ignore snapshots: ${IGNORE_SNAPSHOTS}"
-echo "Check backports: ${CHECK_BACKPORTS}"
-echo "From scratch: ${FROM_SCRATCH}"
-
-RELEASE_VERSION = params.RELEASE_VERSION
-DEVELOPMENT_VERSION = params.DEVELOPMENT_VERSION
-SOURCE_BRANCH = params.SOURCE_BRANCH
-SOURCE_REPOSITORIES = params.SOURCE_REPOSITORIES
-IMAGES_BRANCH = params.IMAGES_BRANCH
-IMAGES_REPOSITORY = params.IMAGES_REPOSITORY
-POSTGRES_DECODER_BRANCH = params.POSTGRES_DECODER_BRANCH
-POSTGRES_DECODER_REPOSITORY = params.POSTGRES_DECODER_REPOSITORY
-ZULIP_TO = params.ZULIP_TO
-
-VERSION_TAG = "v$RELEASE_VERSION"
-VERSION_PARTS = RELEASE_VERSION.split('\\.')
-VERSION_MAJOR_MINOR = "${VERSION_PARTS[0]}.${VERSION_PARTS[1]}"
-IMAGE_TAG = VERSION_MAJOR_MINOR
-CANDIDATE_BRANCH = "candidate-$RELEASE_VERSION"
-
-echo "Images tagged with $IMAGE_TAG will be used"
-
-CONNECTORS = CONNECTORS_PER_VERSION[VERSION_MAJOR_MINOR]
-if (CONNECTORS == null) {
-    error "List of connectors not available"
-}
-echo "Connectors to be released: $CONNECTORS"
-
-// It is expected that repositories are ordered in the dependency order
-// So core repository first, then connectors, Server, Operator and Platform
-SOURCE_REPOSITORIES.split().each { item ->
-    item.tokenize('#').with { parts ->
-        switch(parts.size()) {
-            case 2:
-                MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: ".", 'branch': SOURCE_BRANCH]
-                break
-            case 3:
-                MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: ".", 'branch': parts[2]]
-                break
-            case 4:
-                MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: parts[2], 'branch': parts[3]]
-                break
-        }
-        echo "Repository ${parts[1]} will be used, branch ${MAVEN_REPOSITORIES[parts[0]].branch}"
-    }
-}
 
 node {
+    if (
+        !params.RELEASE_VERSION ||
+        !params.DEVELOPMENT_VERSION ||
+        !params.SOURCE_BRANCH ||
+        !params.SOURCE_REPOSITORIES ||
+        !params.IMAGES_REPOSITORY ||
+        !params.IMAGES_BRANCH ||
+        !params.POSTGRES_DECODER_REPOSITORY ||
+        !params.POSTGRES_DECODER_BRANCH
+    ) {
+        error 'Input parameters not provided'
+    }
+
+    DRY_RUN = common.getBooleanParameter(params.DRY_RUN)
+    FROM_SCRATCH = common.getBooleanParameter(params.FROM_SCRATCH)
+    IGNORE_SNAPSHOTS = common.getBooleanParameter(params.IGNORE_SNAPSHOTS)
+    CHECK_BACKPORTS = common.getBooleanParameter(params.CHECK_BACKPORTS)
+    LATEST_SERIES = common.getBooleanParameter(params.LATEST_SERIES)
+
+    echo "Ignore snapshots: ${IGNORE_SNAPSHOTS}"
+    echo "Check backports: ${CHECK_BACKPORTS}"
+    echo "From scratch: ${FROM_SCRATCH}"
+    echo "Latest series: ${LATEST_SERIES}"
+
+    RELEASE_VERSION = params.RELEASE_VERSION
+    DEVELOPMENT_VERSION = params.DEVELOPMENT_VERSION
+    SOURCE_BRANCH = params.SOURCE_BRANCH
+    SOURCE_REPOSITORIES = params.SOURCE_REPOSITORIES
+    IMAGES_BRANCH = params.IMAGES_BRANCH
+    IMAGES_REPOSITORY = params.IMAGES_REPOSITORY
+    POSTGRES_DECODER_BRANCH = params.POSTGRES_DECODER_BRANCH
+    POSTGRES_DECODER_REPOSITORY = params.POSTGRES_DECODER_REPOSITORY
+    ZULIP_TO = params.ZULIP_TO
+
+    VERSION_TAG = "v$RELEASE_VERSION"
+    VERSION_PARTS = RELEASE_VERSION.split('\\.')
+    VERSION_MAJOR_MINOR = "${VERSION_PARTS[0]}.${VERSION_PARTS[1]}"
+    CANDIDATE_BRANCH = "candidate-$RELEASE_VERSION"
+
+    IMAGE_TAG = VERSION_MAJOR_MINOR
+    echo "Images tagged with $IMAGE_TAG will be used"
+
+    CONNECTORS = CONNECTORS_PER_VERSION[VERSION_MAJOR_MINOR]
+    if (CONNECTORS == null) {
+        error "List of connectors not available"
+    }
+    echo "Connectors to be released: $CONNECTORS"
+
+    // It is expected that repositories are ordered in the dependency order
+    // So core repository first, then connectors, Server, Operator and Platform
+    SOURCE_REPOSITORIES.split().each { item ->
+        item.tokenize('#').with { parts ->
+            switch(parts.size()) {
+                case 2:
+                    MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: ".", 'branch': SOURCE_BRANCH]
+                    break
+                case 3:
+                    MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: ".", 'branch': parts[2]]
+                    break
+                case 4:
+                    MAVEN_REPOSITORIES[parts[0]] = ['git': parts[1], subDir: parts[2], 'branch': parts[3]]
+                    break
+            }
+            echo "Repository ${parts[1]} will be used, branch ${MAVEN_REPOSITORIES[parts[0]].branch}"
+        }
+    }
+
     catchError {
         sendZulipNotification("Starting build of Debezium $RELEASE_VERSION ($BUILD_URL)")
 
@@ -705,13 +711,13 @@ EOF''')
                     shouldSkip = true
                     return
                 }
+
+                echo 'Executing smoke test'
+                sh "git checkout -b $CANDIDATE_BRANCH"
             }
             if (shouldSkip) {
                 return
             }
-            echo 'Executing smoke test'
-            sh "git checkout -b $CANDIDATE_BRANCH"
-
 
             // Smoke test with prepared artifacts
             smokeTestContainerImages()
@@ -767,7 +773,7 @@ EOF''')
                             .replaceFirst('MAVEN_REPO_CENTRAL="[^"]*"', "MAVEN_REPO_CENTRAL=\"$MAVEN_CENTRAL\"")
                 }
             }
-           
+
             dir("$IMAGES_DIR/platform-stage/$IMAGE_TAG/") {
                 fileUtils.modifyFile("Dockerfile") {
                     it.replaceFirst(/COPY $PLATFORM_STAGE_DIR .\/debezium-platform/, "RUN git clone -b \\\$\\{BRANCH\\} https://github.com/debezium/debezium-platform.git")
