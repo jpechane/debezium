@@ -130,7 +130,6 @@ def executeShell(directory, script) {
                 'ZULIPBOT_TOKEN': ZULIPBOT_TOKEN
             ]
             evaluatedScript = engine.createTemplate(script).make(binding).toString()
-            echo evaluatedScript
         }
         sh(script: evaluatedScript, returnStdout: false)
     }
@@ -187,14 +186,14 @@ def branchExists(branchName) {
 
 def gitPushCandidate(repoName) {
     if (!DRY_RUN) {
-        echo 'Pushing candidate branch to repository $repoName'
+        echo "Pushing candidate branch to repository $repoName"
         executeShell('.', "git push \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" HEAD:${CANDIDATE_BRANCH} --follow-tags")
     }
 }
 
 def gitPushTag(repoName) {
     if (!DRY_RUN) {
-        echo 'Pushing tag $VERSION_TAG to repository to $repoName'
+        echo "Pushing tag $VERSION_TAG to repository to $repoName"
         executeShell('.', "git tag $VERSION_TAG && git push \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" $VERSION_TAG")
     }
 }
@@ -317,7 +316,14 @@ def releasePerform(repoDir, repoName) {
     def buildArgs = buildArgsForRepo(repoDir)
 
     echo 'Executing release:perform'
-    executeShell('.', "env MAVEN_USERNAME=\${MAVEN_USERNAME} MAVEN_TOKEN=\${MAVEN_TOKEN} MAVEN_OPTS='-Xmx8g -Xms1g' ./mvnw release:perform -DstagingProgressTimeoutMinutes=60 -DlocalCheckout=$DRY_RUN -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -DconnectionUrl=\"scm:git:https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" -Darguments=\"-s \\\$HOME/.m2/settings-snapshots.xml -DstagingProgressTimeoutMinutes=60 -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dgpg.homedir=\\\$WORKSPACE/$GPG_DIR -Dgpg.passphrase=\${GPG_PASSPHRASE} -DskipTests -DskipITs $buildArgs\" $buildArgs")
+    sendZulipNotification("Publishing version $RELEASE_VERSION of $repoDir")
+
+    executeShell('.', "env MAVEN_USERNAME=\${MAVEN_USERNAME} MAVEN_TOKEN=\${MAVEN_TOKEN} MAVEN_OPTS='-Xmx8g -Xms1g' ./mvnw release:perform -DstagingProgressTimeoutMinutes=60 -DlocalCheckout=$DRY_RUN -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -DconnectionUrl=\"scm:git:https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" -Darguments=\"-s \\\$HOME/.m2/settings-snapshots.xml -DstagingProgressTimeoutMinutes=60 -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -Dgpg.homedir=\\\$WORKSPACE/$GPG_DIR -Dgpg.passphrase=\${GPG_PASSPHRASE} -DskipTests -DskipITs $buildArgs\" $buildArgs")
+    while (!artifactExists(repoDir)) {
+        sleep 60
+    }
+
+    sendZulipNotification("Published version $RELEASE_VERSION of $repoDir")
 
     echo "Building new development version"
     sh "env MAVEN_OPTS='-Xmx8g -Xms1g' ./mvnw clean install -DskipTests -DskipITs -Passembly $buildArgs"
