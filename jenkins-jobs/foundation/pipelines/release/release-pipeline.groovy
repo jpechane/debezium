@@ -596,6 +596,7 @@ node {
                 return
             }
             deleteDir()
+            sh "rm -rf $LOCAL_MAVEN_REPO/io/debezium"
  
             echo 'Configuring git'
             sh "git config user.email || git config --global user.email \"debezium@gmail.com\" && git config --global user.name \"Debezium Builder\""
@@ -795,7 +796,7 @@ EOF''')
                     def nextTag = "${version[0]}.${version[1]}"
                     for (i = 0; i < IMAGES.size(); i++) {
                         def image = IMAGES[i]
-                        if ((new File("$image/$nextTag")).exists()) {
+                        if (fileExists("$image/$nextTag")) {
                             continue
                         }
                         sh "cp -r $image/$IMAGE_TAG $image/$nextTag && git add $image/$nextTag"
@@ -804,7 +805,7 @@ EOF''')
                         it.replaceFirst('FROM \\S+', "FROM quay.io/debezium/connect-base:$nextTag")
                     }
                     fileUtils.modifyFile("connect/$nextTag/Dockerfile") {
-                        it.replaceFirst('FROM \\S+', "FROM \\$DEBEZIUM_DOCKER_REGISTRY_PRIMARY_NAME/connect-base:$nextTag")
+                        it.replaceFirst('FROM \\S+', "FROM \\\$DEBEZIUM_DOCKER_REGISTRY_PRIMARY_NAME/connect-base:$nextTag")
                     }
                     fileUtils.modifyFile("connect/$nextTag/Dockerfile.local") {
                         it
@@ -812,7 +813,7 @@ EOF''')
                                 .replaceFirst('DEBEZIUM_VERSION=\\S+', "DEBEZIUM_VERSION=${DEVELOPMENT_VERSION - '-SNAPSHOT'}")
                     }
                     fileUtils.modifyFile("connect-base/$nextTag/Dockerfile") {
-                        it.replaceFirst('FROM \\S+', "FROM \\$DEBEZIUM_DOCKER_REGISTRY_PRIMARY_NAME/kafka:$nextTag")
+                        it.replaceFirst('FROM \\S+', "FROM \\\$DEBEZIUM_DOCKER_REGISTRY_PRIMARY_NAME/kafka:$nextTag")
                     }
 
                 }
