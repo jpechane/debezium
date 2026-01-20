@@ -170,7 +170,8 @@ def buildArgsForRepo(repoDir) {
     'debezium': 'debezium-parent',
     'server': 'debezium-server',
     'operator': 'debezium-operator',
-    'platform': 'debezium-platform-conductor'
+    'platform': 'debezium-platform-conductor',
+    'quarkus': 'debezium-quarkus-extensions-parent'
 ]
 
 def artifactExists(repoDir) {
