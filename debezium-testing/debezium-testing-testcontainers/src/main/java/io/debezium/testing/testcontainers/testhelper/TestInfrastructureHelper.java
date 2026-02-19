@@ -38,6 +38,8 @@ import io.debezium.testing.testcontainers.util.MoreStartables;
 public class TestInfrastructureHelper {
 
     public static final String KAFKA_HOSTNAME = "kafka-dbz";
+    public static final String LEGACY_KAFKA_HOSTNAME = "kafka";
+    public static final String KAFKA_BOOTSTRAP_SERVERS = KAFKA_HOSTNAME + ":9092," + LEGACY_KAFKA_HOSTNAME + ":9092";
     public static final int CI_CONTAINER_STARTUP_TIME = 90;
     private static final String DEBEZIUM_CONTAINER_IMAGE_VERSION_LATEST = "latest";
 
@@ -60,7 +62,7 @@ public class TestInfrastructureHelper {
 
     private static final GenericContainer<?> KAFKA_CONTAINER = new GenericContainer<>(
             DockerImageName.parse("quay.io/debezium/kafka:" + DEBEZIUM_CONTAINER_IMAGE_VERSION_LATEST).asCompatibleSubstituteFor("kafka"))
-            .withNetworkAliases(KAFKA_HOSTNAME)
+            .withNetworkAliases(KAFKA_HOSTNAME, LEGACY_KAFKA_HOSTNAME)
             .withNetwork(NETWORK)
             .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@" + KAFKA_HOSTNAME + ":9093")
             .withEnv("CLUSTER_ID", "5Yr1SIgYQz-b-dgRabWx4g")
@@ -169,6 +171,13 @@ public class TestInfrastructureHelper {
                     ((GenericContainer<?>) container).withStartupTimeout(Duration.ofSeconds(CI_CONTAINER_STARTUP_TIME));
                 }
             });
+            KAFKA_CONTAINER.withStartupTimeout(Duration.ofSeconds(CI_CONTAINER_STARTUP_TIME));
+        }
+
+        // In CI, parallel startup may start Connect before Kafka is attached to the network,
+        // resulting in intermittent DNS failures for bootstrap servers.
+        if (!KAFKA_CONTAINER.isRunning()) {
+            KAFKA_CONTAINER.start();
         }
         MoreStartables.deepStartSync(containers.get());
     }
@@ -194,7 +203,7 @@ public class TestInfrastructureHelper {
                 .withBuildArg("DEBEZIUM_VERSION", debeziumVersion))
                 .withEnv("ENABLE_DEBEZIUM_SCRIPTING", "true")
                 .withNetwork(NETWORK)
-                .withKafka(KAFKA_CONTAINER.getNetwork(), KAFKA_HOSTNAME + ":9092")
+                .withKafka(KAFKA_CONTAINER.getNetwork(), KAFKA_BOOTSTRAP_SERVERS)
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER))
                 .enableJMX()
                 .dependsOn(KAFKA_CONTAINER);
@@ -229,7 +238,7 @@ public class TestInfrastructureHelper {
         DEBEZIUM_CONTAINER = new DebeziumContainer(DockerImageName.parse(imageName))
                 .withEnv("ENABLE_DEBEZIUM_SCRIPTING", "true")
                 .withNetwork(NETWORK)
-                .withKafka(KAFKA_CONTAINER.getNetwork(), KAFKA_HOSTNAME + ":9092")
+                .withKafka(KAFKA_CONTAINER.getNetwork(), KAFKA_BOOTSTRAP_SERVERS)
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER))
                 .enableJMX()
                 .dependsOn(KAFKA_CONTAINER);
