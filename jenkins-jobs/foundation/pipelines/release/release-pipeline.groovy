@@ -10,6 +10,8 @@ properties([
         string(name: 'DEVELOPMENT_VERSION'),
         string(name: 'SOURCE_BRANCH'),
         string(name: 'SOURCE_REPOSITORIES'),
+        string(name: 'DESCRIPTOR_REPOSITORY'),
+        string(name: 'DESCRIPTOR_BRANCH'),
         string(name: 'IMAGES_REPOSITORY'),
         string(name: 'IMAGES_BRANCH'),
         string(name: 'POSTGRES_DECODER_REPOSITORY'),
@@ -45,6 +47,7 @@ properties([
 @Field final GPG_DIR = 'gpg'
 
 @Field final DEBEZIUM_DIR = 'debezium'
+@Field final DESCRIPTORS_REPO_DIR = 'debezium-descriptors-registry'
 @Field final IMAGES_DIR = 'images'
 @Field final PLATFORM_STAGE_DIR = 'platform'
 @Field final POSTGRES_DECODER_DIR = 'postgres-decoder'
@@ -98,10 +101,13 @@ properties([
 @Field DEVELOPMENT_VERSION
 @Field SOURCE_BRANCH
 @Field SOURCE_REPOSITORIES
+@Field DESCRIPTOR_REPOSITORY
+@Field DESCRIPTOR_BRANCH
 @Field IMAGES_BRANCH
 @Field IMAGES_REPOSITORY
 @Field POSTGRES_DECODER_BRANCH
 @Field POSTGRES_DECODER_REPOSITORY
+@Field DESCRIPTORS_OUTPUT_DIR
 
 @Field CONNECTORS
 
@@ -320,7 +326,7 @@ def releasePerform(repoDir, repoName) {
     echo 'Executing release:perform'
     sendZulipNotification("Publishing version $RELEASE_VERSION of $repoDir")
 
-    executeShell('.', "env MAVEN_USERNAME=\${MAVEN_USERNAME} MAVEN_TOKEN=\${MAVEN_TOKEN} MAVEN_OPTS='-Xmx8g -Xms1g' ./mvnw release:perform -DstagingProgressTimeoutMinutes=60 -DlocalCheckout=$DRY_RUN -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -DconnectionUrl=\"scm:git:https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" -Darguments=\"-s \\\$HOME/.m2/settings-snapshots.xml -DstagingProgressTimeoutMinutes=60 -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -Dgpg.homedir=\\\$WORKSPACE/$GPG_DIR -Dgpg.passphrase=\${GPG_PASSPHRASE} -DskipTests -DskipITs $buildArgs\" $buildArgs")
+    executeShell('.', "env MAVEN_USERNAME=\${MAVEN_USERNAME} MAVEN_TOKEN=\${MAVEN_TOKEN} MAVEN_OPTS='-Xmx8g -Xms1g' ./mvnw release:perform -DstagingProgressTimeoutMinutes=60 -DlocalCheckout=$DRY_RUN -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -DconnectionUrl=\"scm:git:https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${repoName}\" -Darguments=\"-s \\\$HOME/.m2/settings-snapshots.xml -DstagingProgressTimeoutMinutes=60 -Dpublish.auto=${!DRY_RUN} -Dpublish.skip=${DRY_RUN} -Dpublish.wait.until=validated -Dgpg.homedir=\\\$WORKSPACE/$GPG_DIR -Dgpg.passphrase=\${GPG_PASSPHRASE} -DskipTests -DskipITs -Dschema.generator.output.dir=${DESCRIPTORS_OUTPUT_DIR} $buildArgs\" $buildArgs")
     while (!artifactExists(repoDir)) {
         sleep 60
     }
@@ -516,6 +522,8 @@ node {
         !params.DEVELOPMENT_VERSION ||
         !params.SOURCE_BRANCH ||
         !params.SOURCE_REPOSITORIES ||
+        !params.DESCRIPTOR_REPOSITORY ||
+        !params.DESCRIPTOR_BRANCH ||
         !params.IMAGES_REPOSITORY ||
         !params.IMAGES_BRANCH ||
         !params.POSTGRES_DECODER_REPOSITORY ||
@@ -539,6 +547,8 @@ node {
     DEVELOPMENT_VERSION = params.DEVELOPMENT_VERSION
     SOURCE_BRANCH = params.SOURCE_BRANCH
     SOURCE_REPOSITORIES = params.SOURCE_REPOSITORIES
+    DESCRIPTOR_REPOSITORY = params.DESCRIPTOR_REPOSITORY
+    DESCRIPTOR_BRANCH = params.DESCRIPTOR_BRANCH
     IMAGES_BRANCH = params.IMAGES_BRANCH
     IMAGES_REPOSITORY = params.IMAGES_REPOSITORY
     POSTGRES_DECODER_BRANCH = params.POSTGRES_DECODER_BRANCH
@@ -599,7 +609,9 @@ node {
             }
             deleteDir()
             sh "rm -rf $LOCAL_MAVEN_REPO/io/debezium"
- 
+
+            DESCRIPTORS_OUTPUT_DIR = "${WORKSPACE}/descriptors-output"
+
             echo 'Configuring git'
             sh "git config user.email || git config --global user.email \"debezium@gmail.com\" && git config --global user.name \"Debezium Builder\""
             sh "ssh-keyscan github.com >> $HOME_DIR/.ssh/known_hosts"
@@ -633,6 +645,14 @@ EOF''')
                       extensions                       : [[$class: 'RelativeTargetDirectory', relativeTargetDir: POSTGRES_DECODER_DIR]],
                       submoduleCfg                     : [],
                       userRemoteConfigs                : [[url: "https://$POSTGRES_DECODER_REPOSITORY", credentialsId: GIT_CREDENTIALS_ID]]
+            ]
+            )
+            checkout([$class                           : 'GitSCM',
+                      branches                         : [[name: "*/$DESCRIPTOR_BRANCH"]],
+                      doGenerateSubmoduleConfigurations: false,
+                      extensions                       : [[$class: 'RelativeTargetDirectory', relativeTargetDir: DESCRIPTORS_REPO_DIR]],
+                      submoduleCfg                     : [],
+                      userRemoteConfigs                : [[url: "https://$DESCRIPTOR_REPOSITORY", credentialsId: GIT_CREDENTIALS_ID]]
             ]
             )
 
@@ -823,6 +843,37 @@ EOF''')
                         git commit -a -m "Updated container images for release $RELEASE_VERSION"
                     """
                 gitPushCandidate(IMAGES_REPOSITORY)
+            }
+        }
+
+        stage('Generate descriptors manifest') {
+            def debeziumCommit = sh(
+                script: "cd ${WORKSPACE}/${DEBEZIUM_DIR} && git rev-parse --short HEAD",
+                returnStdout: true
+            ).trim()
+
+            def buildTimestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
+
+            fileUtils.generateDescriptorManifest(DESCRIPTORS_OUTPUT_DIR, debeziumCommit, SOURCE_BRANCH, buildTimestamp, RELEASE_VERSION)
+        }
+
+        stage("Publishing descriptors to ${DESCRIPTOR_REPOSITORY}") {
+            if (!DRY_RUN) {
+                dir(DESCRIPTORS_REPO_DIR) {
+                    executeShell('.',
+                    """
+                        mkdir -p ${RELEASE_VERSION}
+                        cp -r ${DESCRIPTORS_OUTPUT_DIR}/* ${RELEASE_VERSION}/
+
+                        DEBEZIUM_COMMIT=\$(cd ${WORKSPACE}/${DEBEZIUM_DIR} && git rev-parse --short HEAD)
+                        BUILD_TIMESTAMP=\$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+                        git add ${RELEASE_VERSION}
+                        git commit -m '[release] ${RELEASE_VERSION} from debezium/debezium@'\${DEBEZIUM_COMMIT}' at '\${BUILD_TIMESTAMP} || echo 'No changes to commit'
+                        git push "https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${DESCRIPTOR_REPOSITORY}" HEAD:${DESCRIPTOR_BRANCH}
+                    """
+                    )
+                }
             }
         }
         stage('Cleanup GitHub Project') {

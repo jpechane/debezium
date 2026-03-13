@@ -7,6 +7,8 @@ return { parametersContext ->
         )
         stringParam('SOURCE_BRANCH', 'main', 'A branch from which Debezium connectors are built, can be overridden in SOURCE_REPOSITORIES')
         stringParam('IMAGES_REPOSITORY', 'github.com/debezium/container-images.git', 'Repository with Debezium Dockerfiles')
+        stringParam('DESCRIPTOR_REPOSITORY', 'github.com/debezium/debezium-descriptors-registry.git', 'Repository where Debezium descriptors are published')
+        stringParam('DESCRIPTOR_BRANCH', 'main', 'Branch where descriptors are published for releases')
         stringParam('IMAGES_BRANCH', 'main', 'Branch used for images repository')
         stringParam('MULTIPLATFORM_PLATFORMS', 'linux/amd64,linux/arm64', 'Which platforms to build images for')
     }
