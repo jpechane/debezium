@@ -604,13 +604,13 @@ node {
         }
 
         stage('Initialize') {
+            DESCRIPTORS_OUTPUT_DIR = "${WORKSPACE}/descriptors-output"
+
             if (!FROM_SCRATCH) {
                 return
             }
             deleteDir()
             sh "rm -rf $LOCAL_MAVEN_REPO/io/debezium"
-
-            DESCRIPTORS_OUTPUT_DIR = "${WORKSPACE}/descriptors-output"
 
             echo 'Configuring git'
             sh "git config user.email || git config --global user.email \"debezium@gmail.com\" && git config --global user.name \"Debezium Builder\""
