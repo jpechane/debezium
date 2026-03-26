@@ -869,7 +869,7 @@ EOF''')
                         BUILD_TIMESTAMP=\$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
                         git add ${RELEASE_VERSION}
-                        git commit -m '[release] ${RELEASE_VERSION} from debezium/debezium@'\${DEBEZIUM_COMMIT}' at '\${BUILD_TIMESTAMP} || echo 'No changes to commit'
+                        git commit -m '[release] ${RELEASE_VERSION} from debezium/debezium@'\$DEBEZIUM_COMMIT' at '\$BUILD_TIMESTAMP || echo 'No changes to commit'
                         git push "https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${DESCRIPTOR_REPOSITORY}" HEAD:${DESCRIPTOR_BRANCH}
                     """
                     )
