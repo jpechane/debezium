@@ -860,8 +860,7 @@ EOF''')
         stage("Publishing descriptors to ${DESCRIPTOR_REPOSITORY}") {
             if (!DRY_RUN) {
                 dir(DESCRIPTORS_REPO_DIR) {
-                    executeShell('.',
-                    """
+                    sh """
                         mkdir -p ${RELEASE_VERSION}
                         cp -r ${DESCRIPTORS_OUTPUT_DIR}/* ${RELEASE_VERSION}/
 
@@ -870,9 +869,9 @@ EOF''')
 
                         git add ${RELEASE_VERSION}
                         git commit -m '[release] ${RELEASE_VERSION} from debezium/debezium@'\$DEBEZIUM_COMMIT' at '\$BUILD_TIMESTAMP || echo 'No changes to commit'
-                        git push "https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${DESCRIPTOR_REPOSITORY}" HEAD:${DESCRIPTOR_BRANCH}
                     """
-                    )
+
+                    executeShell('.', "git push \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@${DESCRIPTOR_REPOSITORY}\" HEAD:${DESCRIPTOR_BRANCH}")
                 }
             }
         }
