@@ -212,6 +212,7 @@ def gitMergeAndDeleteCandidate(repoName, repoBranch) {
         executeShell('.',
         """
             git pull --rebase \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@$repoName\" $CANDIDATE_BRANCH && \\
+            git pull --rebase \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@$repoName\" $repoBranch && \\
             git checkout $repoBranch && \\
             git rebase $CANDIDATE_BRANCH && \\
             git push \"https://\${GITHUB_USERNAME}:\${GITHUB_PASSWORD}@$repoName\" HEAD:$repoBranch && \\
@@ -846,6 +847,22 @@ EOF''')
             }
         }
 
+        stage('Commit changes to repositories') {
+            // Merge doc PRs
+            dir(IMAGES_DIR) {
+                gitPushTag(IMAGES_REPOSITORY)
+                gitMergeAndDeleteCandidate(IMAGES_REPOSITORY, IMAGES_BRANCH)
+            }
+            dir(POSTGRES_DECODER_DIR) {
+                gitPushTag(POSTGRES_DECODER_REPOSITORY)
+            }
+            MAVEN_REPOSITORIES.each { id, repo ->
+                dir (id) {
+                    gitMergeAndDeleteCandidate(repo.git, repo.branch)
+                }
+            }
+        }
+
         stage('Generate descriptors manifest') {
             def debeziumCommit = sh(
                 script: "cd ${WORKSPACE}/${DEBEZIUM_DIR} && git rev-parse --short HEAD",
@@ -877,22 +894,6 @@ EOF''')
         }
         stage('Cleanup GitHub Project') {
             if (!DRY_RUN) {
-            }
-        }
-
-        stage('Commit changes to repositories') {
-            // Merge doc PRs
-            dir(IMAGES_DIR) {
-                gitPushTag(IMAGES_REPOSITORY)
-                gitMergeAndDeleteCandidate(IMAGES_REPOSITORY, IMAGES_BRANCH)
-            }
-            dir(POSTGRES_DECODER_DIR) {
-                gitPushTag(POSTGRES_DECODER_REPOSITORY)
-            }
-            MAVEN_REPOSITORIES.each { id, repo ->
-                dir (id) {
-                    gitMergeAndDeleteCandidate(repo.git, repo.branch)
-                }
             }
         }
     }
