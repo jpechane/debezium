@@ -80,8 +80,8 @@ properties([
     '3.2' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ibmi', 'mariadb'],
     '3.3' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ibmi', 'mariadb', 'cockroachdb'],
     '3.4' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ibmi', 'mariadb', 'cockroachdb'],
-    '3.5' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ingres', 'ibmi', 'mariadb', 'cockroachdb',
-    '3.5' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ingres', 'ibmi', 'mariadb', 'cockroachdb', 'yashandb']
+    '3.5' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ingres', 'ibmi', 'mariadb', 'cockroachdb'],
+    '3.6' : ['mongodb', 'mysql', 'postgres', 'sqlserver', 'oracle', 'cassandra-3', 'cassandra-4', 'db2', 'vitess', 'spanner', 'jdbc', 'informix', 'ingres', 'ibmi', 'mariadb', 'cockroachdb', 'yashandb']
 ]
 @Field final ZULIP_URL = 'https://debezium.zulipchat.com/api/v1'
 
@@ -370,6 +370,7 @@ def smokeTestContainerImages() {
     def operatorSum = sh(script: "md5sum -b $LOCAL_MAVEN_REPO/io/debezium/debezium-operator-dist/$RELEASE_VERSION/debezium-operator-dist-${RELEASE_VERSION}.tar.gz | awk '{print \$1}'", returnStdout: true).trim()
     def platformSum = sh(script: "md5sum -b $LOCAL_MAVEN_REPO/io/debezium/debezium-platform-conductor/$RELEASE_VERSION/debezium-platform-conductor-${RELEASE_VERSION}.tar.gz | awk '{print \$1}'", returnStdout: true).trim()
     sums['SCRIPTING'] = sh(script: "md5sum -b $LOCAL_MAVEN_REPO/io/debezium/debezium-scripting/$RELEASE_VERSION/debezium-scripting-${RELEASE_VERSION}.tar.gz | awk '{print \$1}'", returnStdout: true).trim()
+    sums['CHRONICLE_QUEUE'] = sh(script: "md5sum -b $LOCAL_MAVEN_REPO/io/debezium/debezium-storage-chronicle-queue/$RELEASE_VERSION/debezium-storage-chronicle-queue-${RELEASE_VERSION}-store.tar.gz | awk '{print \$1}'", returnStdout: true).trim()
     dir("$IMAGES_DIR/connect/$IMAGE_TAG") {
         echo 'Modifying main Dockerfile'
         def additionalRepoList = MAVEN_REPOSITORIES.collect({ id, repo -> "${id.toUpperCase()}=$STAGING_REPO" }).join(' ')
