@@ -663,7 +663,7 @@ EOF''')
             dir(DEBEZIUM_DIR) {
                 def ORACLE_ARTIFACT_VERSION = (readFile('pom.xml') =~ /(?ms)<version.oracle.driver>(.+)<\/version.oracle.driver>/)[0][1]
                 def ORACLE_INSTANTCLIENT_ARTIFACT_VERSION = (readFile('pom.xml') =~ /(?ms)<version.oracle.instantclient>(.+)<\/version.oracle.instantclient>/)[0][1]
-                def ORACLE_ARTIFACT_DIR = "/tmp/oracle-libs/${ORACLE_ARTIFACT_VERSION}.0"
+                def ORACLE_ARTIFACT_DIR = "$HOME_DIR/oracle-libs/${ORACLE_ARTIFACT_VERSION}${(ORACLE_ARTIFACT_VERSION =~ /^(\d+)/)[0][1] as int >= 23 ? '' : '.0'}"
 
                 sh "./mvnw install:install-file -DgroupId=com.oracle.instantclient -DartifactId=xstreams -Dversion=$ORACLE_INSTANTCLIENT_ARTIFACT_VERSION -Dpackaging=jar -Dfile=$ORACLE_ARTIFACT_DIR/xstreams.jar"
             }
