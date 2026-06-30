@@ -19,7 +19,7 @@
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-postgres</artifactId>
-            <version>${project.version}</version>
+            <version>3.6.0.CR1</version>
         </dependency>
     </dependencies>
 
