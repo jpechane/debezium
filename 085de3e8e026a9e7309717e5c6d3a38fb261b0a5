@@ -1,1 +1,15 @@
 {"id":"bad81770-2108-4f23-b184-6ed3e76653b6","ts":"2026-08-05T09:32:13.277Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+
+{"id":"bc22ef4b-56e6-4a66-9ee2-b1573abf074f","ts":"2026-08-05T09:08:42.725Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+
+{"id":"49531030-a81c-48f8-b179-7cc34ffc7923","ts":"2026-08-05T08:55:57.137Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"30823543-e792-44b0-82c2-74bf459342eb","ts":"2026-08-05T08:56:52.448Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+
+{"id":"ccea8f0b-a3d2-4e95-8eae-968f54fc3057","ts":"2026-08-05T08:21:08.804Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"33541791-c2e2-44c2-9779-adeff529924d","ts":"2026-08-05T08:21:15.651Z","path":"/home/jpechane/sources/debezium/debezium/.github/scripts/parse_snapshot_repositories.py","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"e89cd780-51f0-4cd8-b64f-f59a66904c8a","ts":"2026-08-05T08:24:06.924Z","path":"/home/jpechane/sources/debezium/debezium/.github/scripts/parse_snapshot_repositories.py","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"f1f656bf-d6d1-48bf-8f20-fd7fb762812b","ts":"2026-08-05T08:24:54.505Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"2274008f-400e-47ac-94ec-f9cf6d28fb60","ts":"2026-08-05T08:25:35.152Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"432dac07-dba4-4553-bf8d-074d190667d1","ts":"2026-08-05T08:29:32.891Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"623cf4e8-f651-45ef-8c34-de959852f1f2","ts":"2026-08-05T08:30:13.526Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
+{"id":"4d3c86eb-4350-40e8-8624-4fa5b8437f08","ts":"2026-08-05T08:43:55.325Z","path":"/home/jpechane/sources/debezium/debezium/.github/workflows/deploy-snapshots.yml","version":"1.0.0","taskID":"c78db5b7-203b-43ad-9324-478794ad4d14"}
