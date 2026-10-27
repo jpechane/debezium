@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even outside the debezium/debezium repository (for testing)"
+        type: boolean
+        default: false
 
 env:
   # Space-separated list of debezium org repositories to skip (without the org prefix).
@@ -16,7 +21,7 @@ jobs:
   check-unlinked-prs:
     name: "Find open PRs not linked to a GitHub issue"
     runs-on: ubuntu-latest
-    if: github.repository == 'debezium/debezium'
+    if: github.repository == 'debezium/debezium' || inputs.force == true
 
     steps:
       - name: Find PRs without a linked issue
